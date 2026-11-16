@@ -785,8 +785,16 @@ a.aramabtn{display:inline-block;background:#1e8e3e;color:#fff;border-radius:8px;
 <script>
 'use strict';
 /* ================= SABİTLER ================= */
-const APP_VERSION='1.0.8', APP_DATE='16.11.2026', BUILD_SUFFIX='-offline';
-const CHANGELOG=[{v:'1.0.8',t:'16.11.2026',n:[
+const APP_VERSION='1.1.0', APP_DATE='16.11.2026', BUILD_SUFFIX='-offline';
+const CHANGELOG=[{v:'1.1.0',t:'16.11.2026',n:[
+ 'Yeni: Müşteri randevusu. Bugün ekranında "📅 Randevu ekle" düğmesi ve "Randevular" kutusu (bugün, yarın, gecikmiş; ileri tarihliler "Tümü" listesinde)',
+ 'Randevu: müşteri adı, telefon, tarih/saat, adres/not; konum zorunlu değil, sonradan eklenir (Buradayım, haritadan seç ya da WhatsApp/Haritalar bağlantısı yapıştır)',
+ 'Randevuda Ara, Yol tarifi, Takvime ekle (müşteri ve konum bilgisi takvime yazılmaz), İptal/Ertele; "Ziyareti başlat" müşteri ve konumu hazır ziyaret formunu açar, ziyaret gittiğiniz günün kaydı olur ve randevu tamamlanır',
+ 'Randevular JSON paketine girer (müşteri ad/tel/adres/not KVKK karışık)'
+]},{v:'1.0.9',t:'16.11.2026',n:[
+ 'Düzeltme: bilgisayarda ziyaret detayında Düzenle\'ye basınca pencere kapanıp düzenleme ekranı açılmıyordu (sayfa geçmişi çakışması)',
+ 'Giriş/kapı bilgisi bina adında zaten geçiyorsa ikinci kez yazılmaz (ör. "Müstakil 468 Sk. No: 18 (No: 18)")'
+]},{v:'1.0.8',t:'16.11.2026',n:[
  'BM kartı: bina adında "müstakil" geçiyorsa kartta Bina Adı yalnızca "Müstakil" yazar (sokak/kapı no uygulamada ve pakette kalır; WhatsApp kartına gitmez)'
 ]},{v:'1.0.7',t:'16.11.2026',n:[
  'Bugün ekranında "Takipler" kutusu: dönüş/takip tarihi gelen, bugün olan ve 7 gün içinde yaklaşan müşteriler; Ara, Takvime ekle ve Tamam düğmeleri',
@@ -869,6 +877,7 @@ function bantOf(m){if(m==null)return'yok';if(m<=250)return'250';if(m<=500)return
 function enc(s){if(s==null||s==='')return s;if(typeof s!=='string')s=String(s);if(s.startsWith('~K~'))return s;const b=new TextEncoder().encode(s),k=new TextEncoder().encode(KARISTIR_ANAHTAR);let bin='';for(let i=0;i<b.length;i++)bin+=String.fromCharCode(b[i]^k[i%k.length]);return '~K~'+btoa(bin);}
 function dec(s){if(typeof s!=='string'||!s.startsWith('~K~'))return s;try{const bin=atob(s.slice(3)),k=new TextEncoder().encode(KARISTIR_ANAHTAR),o=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)o[i]=bin.charCodeAt(i)^k[i%k.length];return new TextDecoder().decode(o);}catch(e){return s;}}
 function ziyaretMap(z,fn){const c=clone(z);c.ekNot=fn(c.ekNot);c.sonucMetni=fn(c.sonucMetni);(c.musteriler||[]).forEach(m=>{m.ad=fn(m.ad);m.tel=fn(m.tel);m.not=fn(m.not);});return c;}
+function randevuMap(r,fn){const c=clone(r);if(c.musteri){c.musteri.ad=fn(c.musteri.ad);c.musteri.tel=fn(c.musteri.tel);}c.adres=fn(c.adres);c.not=fn(c.not);if(c.konum&&c.konum.baglanti)c.konum.baglanti=fn(c.konum.baglanti);return c;}
 function binaMap(b,fn){const c=clone(b);if(c.yonetici){c.yonetici.ad=fn(c.yonetici.ad);c.yonetici.tel=fn(c.yonetici.tel);}return c;}
 
 /* Ürün / sonuç metinleri */
@@ -905,7 +914,7 @@ function saatAraligi(z){
 function kartMetni(z,b){
   const isimler=(z.musteriler||[]).map(m=>(m.ad||'').trim()).filter(Boolean);
   const ilm=[b.ilce,b.mahalle].filter(Boolean).join(' / ');
-  const binaAd=/müstakil/.test(trLower(b.ad||''))?'Müstakil':(b.ad||'')+(z.giris&&z.giris.trim()?' ('+z.giris.trim()+')':'');
+  const binaAd=/müstakil/.test(trLower(b.ad||''))?'Müstakil':binaAdi(b.ad,z.giris);
   let musteri;
   if(isimler.length<=1)musteri='👤 *Müşteri Adı*: '+(isimler[0]||'—');
   else musteri='👤 *Müşteri Adı*:\n'+isimler.map(x=>'- '+x).join('\n');
@@ -946,6 +955,7 @@ function ilceMahalleParse(text){
   return [...map.entries()].map(([ilce,s])=>({ilce,mahalleler:[...s].sort((a,b)=>a.localeCompare(b,'tr'))})).sort((a,b)=>a.ilce.localeCompare(b.ilce,'tr'));
 }
 function mergeById(arr,incoming,verOf){const m=new Map(arr.map(x=>[x.id,x]));let n=0;incoming.forEach(x=>{const o=m.get(x.id);if(!o||verOf(x)>verOf(o)){m.set(x.id,x);n++;}});return {list:[...m.values()],n};}
+function binaAdi(ad,giris){ad=ad||'';const g=(giris||'').trim();if(!g)return ad;const nz=t=>' '+trLower(t).replace(/[^a-z0-9çğıöşüâî]+/g,' ').trim()+' ';return nz(ad).includes(nz(g))?ad:ad+' ('+g+')';}
 function gunFarki(tarih,bugun){ /* 'YYYY-MM-DD' - 'YYYY-MM-DD' gün farkı (negatif: geçmiş) */
   const a=new Date(tarih+'T00:00:00'),b=new Date(bugun+'T00:00:00');return Math.round((a-b)/86400000);
 }
@@ -968,13 +978,27 @@ function icsUret(o){ /* o:{uid,tarih:'YYYY-MM-DD',baslik,aciklama,saat:'0900',su
    'SUMMARY:'+icsEsc(o.baslik),'DESCRIPTION:'+icsEsc(o.aciklama),
    'BEGIN:VALARM','ACTION:DISPLAY','DESCRIPTION:'+icsEsc(o.baslik),'TRIGGER:PT0M','END:VALARM','END:VEVENT','END:VCALENDAR'].join('\r\n')+'\r\n';
 }
+function konumCoz(t){
+  t=String(t||'');let u=t;try{u=decodeURIComponent(t);}catch(e){}
+  const ok=(a,b)=>{a=parseFloat(a);b=parseFloat(b);return isFinite(a)&&isFinite(b)&&Math.abs(a)<=90&&Math.abs(b)<=180?{lat:a,lon:b}:null;};
+  let m;
+  if((m=u.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/)))return ok(m[1],m[2]);
+  if((m=u.match(/[?&](?:q|ll|query|daddr|destination|center|sll)=(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/)))return ok(m[1],m[2]);
+  if((m=u.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)))return ok(m[1],m[2]);
+  if((m=u.match(/^\s*(-?\d{1,2}\.\d+)\s*[,; ]\s*(-?\d{1,3}\.\d+)\s*$/)))return ok(m[1],m[2]);
+  return null;
+}
+function randevuHesapla(rs,bugun){
+  return (rs||[]).filter(r=>r.durum==='bekliyor'&&/^\d{4}-\d{2}-\d{2}$/.test(r.tarih||'')).map(r=>({id:r.id,fark:gunFarki(r.tarih,bugun),tarih:r.tarih,saat:r.saat||''}))
+   .sort((a,b)=>{const x=a.tarih+a.saat,y=b.tarih+b.saat;return x<y?-1:x>y?1:0;});
+}
 /*TEST-END*/
 
 /* ================= DURUM VE DEPOLAMA ================= */
-let S={ayar:{adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},binalar:[],ziyaretler:[],ilceMahalle:[],taslak:null};
-function serialize(s){const c={ayar:clone(s.ayar),ilceMahalle:s.ilceMahalle,binalar:s.binalar.map(b=>binaMap(b,enc)),ziyaretler:s.ziyaretler.map(z=>ziyaretMap(z,enc)),taslak:null,v:1};
+let S={ayar:{adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},binalar:[],ziyaretler:[],randevular:[],ilceMahalle:[],taslak:null};
+function serialize(s){const c={ayar:clone(s.ayar),ilceMahalle:s.ilceMahalle,binalar:s.binalar.map(b=>binaMap(b,enc)),ziyaretler:s.ziyaretler.map(z=>ziyaretMap(z,enc)),randevular:(s.randevular||[]).map(r=>randevuMap(r,enc)),taslak:null,v:1};
   if(s.taslak)c.taslak={z:ziyaretMap(s.taslak.z,enc),b:binaMap(s.taslak.b,enc),edit:s.taslak.edit,ts:s.taslak.ts};return c;}
-function deserialize(r){const s={ayar:Object.assign({adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},r.ayar||{}),ilceMahalle:r.ilceMahalle||[],binalar:(r.binalar||[]).map(b=>binaMap(b,dec)),ziyaretler:(r.ziyaretler||[]).map(z=>ziyaretMap(z,dec)),taslak:null};
+function deserialize(r){const s={ayar:Object.assign({adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},r.ayar||{}),ilceMahalle:r.ilceMahalle||[],binalar:(r.binalar||[]).map(b=>binaMap(b,dec)),ziyaretler:(r.ziyaretler||[]).map(z=>ziyaretMap(z,dec)),randevular:(r.randevular||[]).map(x=>randevuMap(x,dec)),taslak:null};
   if(!s.ayar.alicilar)s.ayar.alicilar=VARSAYILAN_ALICI;
   if(r.taslak)s.taslak={z:ziyaretMap(r.taslak.z,dec),b:binaMap(r.taslak.b,dec),edit:r.taslak.edit,ts:r.taslak.ts};return s;}
 let _db=null;
@@ -990,6 +1014,7 @@ async function save(){const data=serialize(S);try{await idbSet('state',data);ret
 function temizlik(){
   const cut=Date.now()-SAKLAMA_GUN*86400000;const n0=S.ziyaretler.length;
   S.ziyaretler=S.ziyaretler.filter(z=>new Date(z.baslangic.zaman).getTime()>=cut);
+  S.randevular=(S.randevular||[]).filter(r=>r.durum==='bekliyor'||new Date(r.guncelleme||r.olusturma).getTime()>=cut);
   if(S.taslak&&Date.now()-S.taslak.ts>2*86400000)S.taslak=null;
   return n0-S.ziyaretler.length;
 }
@@ -1009,7 +1034,7 @@ function openSheet(html,opt={}){
   const ov=document.createElement('div');ov.className='overlay';ov.innerHTML='<div class="sheet '+(opt.cls||'')+'">'+html+'</div>';
   $('#modalRoot').appendChild(ov);
   const sh={el:ov,sheet:ov.firstChild,onClose:opt.onClose,closed:false};sheets.push(sh);
-  try{history.pushState({s:sheets.length},'');}catch(e){}
+  try{if(histDepth()>=sheets.length)history.replaceState({s:sheets.length},'');else history.pushState({s:sheets.length},'');}catch(e){} /* kapanan pencereden kalan kayıt varsa üzerine yaz */
   if(opt.dismiss!==false)ov.addEventListener('click',e=>{if(e.target===ov)closeSheet(sh);});
   return sh;
 }
@@ -1017,7 +1042,7 @@ function histDepth(){return (history.state&&history.state.s)||0;}
 function closeSheet(sh,fromPop){
   if(sh.closed)return;sh.closed=true;const i=sheets.indexOf(sh);if(i>=0)sheets.splice(i,1);sh.el.remove();if(sh.onClose)sh.onClose();
   /* geçmişte yalnızca şu anki kayıt bir pencere kaydıysa ve açık pencere sayısından fazlaysa bir adım geri */
-  if(!fromPop&&histDepth()>sheets.length){try{history.back();}catch(e){}}
+  if(!fromPop)setTimeout(()=>{if(histDepth()>sheets.length){try{history.back();}catch(e){}}},0); /* hemen yeni pencere açılırsa (Düzenle) geri gitme yapılmaz */
 }
 window.addEventListener('popstate',()=>{const d=histDepth();while(sheets.length>d){closeSheet(sheets[sheets.length-1],true);}});
 
@@ -1289,6 +1314,7 @@ async function kaydet(){
   const bi=S.binalar.findIndex(x=>x.id===b.id);if(bi>=0)S.binalar[bi]=b;else S.binalar.push(b);
   S.ayar.sonIlce=b.ilce;S.ayar.sonMahalle=b.mahalle;
   const zi=S.ziyaretler.findIndex(x=>x.id===z.id);if(zi>=0)S.ziyaretler[zi]=z;else S.ziyaretler.push(z);
+  if(!D.edit&&z.randevuId){const ri=(S.randevular||[]).findIndex(x=>x.id===z.randevuId);if(ri>=0&&S.randevular[ri].durum==='bekliyor')Object.assign(S.randevular[ri],{durum:'tamam',tamamZaman:now,ziyaretId:z.id,guncelleme:now});}
   S.taslak=null;clearTimeout(tkT);
   const ok=await save();
   const edit=D.edit&&!D.tamamla;const sh=formSh;D=null;if(sh)closeSheet(sh);
@@ -1338,7 +1364,7 @@ function rozetler(z){
 }
 function ziyaretKart(z){
   const b=binaOf(z);const isim=z.musteriler.map(m=>m.ad).filter(Boolean).join(', ')||'—';
-  return '<div class="vi'+(z.iptal?' ipt':'')+'" data-act="detay" data-id="'+z.id+'"><div class="h"><span>'+fmtTime(z.baslangic.zaman)+'</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / '))+'</span></div><div class="t">'+esc(b.ad)+(z.giris?' ('+esc(z.giris)+')':'')+'</div><div class="s">'+(z.durum==='bekliyor'?'Müşteri ve sonuç girilmedi — tamamlanacak':esc(isim)+' — '+esc((z.sonucMetni||sonucMetniUret(z)).split('\n')[0]))+'</div>'+rozetler(z)+'</div>';
+  return '<div class="vi'+(z.iptal?' ipt':'')+'" data-act="detay" data-id="'+z.id+'"><div class="h"><span>'+fmtTime(z.baslangic.zaman)+'</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / '))+'</span></div><div class="t">'+esc(binaAdi(b.ad,z.giris))+'</div><div class="s">'+(z.durum==='bekliyor'?'Müşteri ve sonuç girilmedi — tamamlanacak':esc(isim)+' — '+esc((z.sonucMetni||sonucMetniUret(z)).split('\n')[0]))+'</div>'+rozetler(z)+'</div>';
 }
 function takipSatirlari(z){
   const l=(z.musteriler||[]).filter(m=>m.takip);if(!l.length||z.iptal)return '';
@@ -1385,8 +1411,8 @@ function paketOlustur(){
   const bs=S.binalar.filter(b=>bids.has(b.id));
   const now=new Date().toISOString();
   return {sema:'d2d-ziyaret-paketi',semaSurum:1,uygulama:'D2D Rapor',uygulamaSurum:APP_VERSION,olusturma:now,kapsamGun:PAKET_GUN,
-    kullanici:{kod:S.ayar.kod,adSoyad:S.ayar.adSoyad},karistirma:{yontem:'kvkk-xor-b64',onek:'~K~',uyumlu:'PY/Panel kvkkEncode/kvkkDecode',alanlar:['musteriler[].ad','musteriler[].tel','musteriler[].not','ekNot','sonucMetni','yonetici.ad','yonetici.tel']},
-    binalar:bs.map(b=>binaMap(b,enc)),ziyaretler:zs.map(z=>ziyaretMap(z,enc))};
+    kullanici:{kod:S.ayar.kod,adSoyad:S.ayar.adSoyad},karistirma:{yontem:'kvkk-xor-b64',onek:'~K~',uyumlu:'PY/Panel kvkkEncode/kvkkDecode',alanlar:['musteriler[].ad','musteriler[].tel','musteriler[].not','ekNot','sonucMetni','yonetici.ad','yonetici.tel','randevular[].musteri.ad','randevular[].musteri.tel','randevular[].adres','randevular[].not','randevular[].konum.baglanti']},
+    binalar:bs.map(b=>binaMap(b,enc)),ziyaretler:zs.map(z=>ziyaretMap(z,enc)),randevular:(S.randevular||[]).filter(r=>r.durum==='bekliyor'||new Date(r.guncelleme||r.olusturma).getTime()>=cut).map(r=>randevuMap(r,enc))};
 }
 function topluMetin(kartlar,adSoyad,gun,gecmis){
   gecmis=gecmis||[];
@@ -1416,7 +1442,7 @@ function gununKartlari(day){return S.ziyaretler.filter(z=>!z.iptal&&!z.durum&&da
 function pad2(d){return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes());}
 function gonderSheet(){
   if(gerekliKurulum())return;
-  const paket=paketOlustur();if(!paket.ziyaretler.length){toast('Gönderilecek kayıt yok');return;}
+  const paket=paketOlustur();if(!paket.ziyaretler.length&&!(paket.randevular||[]).length){toast('Gönderilecek kayıt yok');return;}
   const today=dayKey(new Date());const kartlar=gununKartlari(today);const gKartlar=gecmisKartlari(today);
   const konu='D2D Günlük – '+S.ayar.adSoyad+' – '+fmtDate(new Date());
   const govde=(topluMetin(kartlar,S.ayar.adSoyad,new Date(),gKartlar)||konu+'\n(bugün kart yok)')+'\n\nEk: JSON paketi (son '+PAKET_GUN+' gün, '+paket.ziyaretler.length+' kayıt)';
@@ -1456,6 +1482,108 @@ function gonderSheet(){
 /* ================= SEKMELER ================= */
 let TAB='bugun',binaMap_=null,binaView='liste';
 function bekleyenSayi(){const t=S.ayar.sonGonderim?new Date(S.ayar.sonGonderim).getTime():0;return S.ziyaretler.filter(z=>new Date(z.duzenleme||z.olusturma||z.baslangic.zaman).getTime()>t).length;}
+/* ================= RANDEVU ================= */
+function rvYeniObj(){const n=new Date().toISOString(),d=new Date();d.setDate(d.getDate()+1);return {id:uid(),olusturma:n,guncelleme:n,musteri:{ad:'',tel:''},tarih:dayKey(d),saat:'10:00',adres:'',not:'',konum:null,durum:'bekliyor',tamamZaman:null,ziyaretId:null,iptal:null};}
+const rvBul=id=>(S.randevular||[]).find(r=>r.id===id);
+function rvKonumTxt(r){const k=r.konum;if(!k)return '<span style="color:var(--warn)">⚠ Konum yok</span>';if(k.lat!=null)return '<span style="color:var(--ok)">✓ Konum var ('+(k.kaynak==='gps'?'GPS':k.kaynak==='harita'?'haritadan':'bağlantıdan')+')</span>';return '<span style="color:var(--ok)">✓ Konum bağlantısı kayıtlı</span>';}
+function rvSatir(r,fark){
+  const k=!!r.konum;
+  const rz=fark<0?'<span class="rz b-asan">'+(-fark)+' gün gecikti</span>':fark===0?'<span class="rz b-1000">Bugün</span>':fark===1?'<span class="rz b-500">Yarın</span>':'<span class="rz">'+fark+' gün sonra</span>';
+  const ara=r.musteri.tel?'<a class="aramabtn" data-act="rvNoop" href="'+esc(telHref(r.musteri.tel))+'">📞 Ara</a>':'';
+  return '<div class="vi" data-act="rvDetay" data-id="'+r.id+'"><div class="h"><span>'+fmtDate(r.tarih+'T00:00:00')+' · '+esc(r.saat||'—')+'</span><span>'+rvKonumTxt(r)+'</span></div><div class="t">'+esc(r.musteri.ad||'Müşteri')+'</div>'+(r.adres?'<div class="s">'+esc(r.adres)+'</div>':'')+rz+
+   '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap;align-items:center">'+ara+(k?'<button class="btn sm sec" style="width:auto" data-act="rvYol" data-id="'+r.id+'">🧭 Yol tarifi</button>':'<button class="btn sm sec" style="width:auto" data-act="rvKonum" data-id="'+r.id+'">📍 Konum ekle</button>')+
+   '<button class="btn sm sec" style="width:auto" data-act="takvimRv" data-id="'+r.id+'">📅 Takvim</button><button class="btn sm ok" style="width:auto" data-act="rvBasla" data-id="'+r.id+'">✅ Ziyareti başlat</button></div></div>';
+}
+function randevularHtml(today){
+  const t=randevuHesapla(S.randevular,today);if(!t.length)return '';
+  const yak=t.filter(x=>x.fark<=1),gec=t.filter(x=>x.fark<0).length,bug=t.filter(x=>x.fark===0).length,yar=t.filter(x=>x.fark===1).length;
+  let h='<div class="'+(gec?'warnbox':'info')+'" style="margin-bottom:6px"><b>📅 Randevular</b> — '+(gec?gec+' gecikmiş · ':'')+bug+' bugün · '+yar+' yarın'+(t.length>yak.length?' · '+(t.length-yak.length)+' ileri tarihli':'')+' <button class="btn sm sec" style="width:auto;margin-left:6px" data-act="rvListe">Tümü</button></div>';
+  return h+yak.map(x=>rvSatir(rvBul(x.id),x.fark)).join('');
+}
+function rvListeSheet(){
+  const today=dayKey(new Date()),t=randevuHesapla(S.randevular,today);
+  const bit=(S.randevular||[]).filter(r=>r.durum!=='bekliyor').sort((a,b)=>new Date(b.guncelleme||0)-new Date(a.guncelleme||0)).slice(0,20);
+  const h='<h3 style="margin:0 0 8px;color:var(--navy)">Randevular</h3>'+(t.length?t.map(x=>rvSatir(rvBul(x.id),x.fark)).join(''):'<div class="empty">Bekleyen randevu yok</div>')+
+   (bit.length?'<div class="day">Tamamlanan / iptal</div>'+bit.map(r=>'<div class="vi'+(r.durum==='iptal'?' ipt':'')+'" data-act="rvDetay" data-id="'+r.id+'"><div class="h"><span>'+fmtDate(r.tarih+'T00:00:00')+' · '+esc(r.saat||'—')+'</span><span>'+(r.durum==='tamam'?'✓ Tamamlandı':'İptal')+'</span></div><div class="t">'+esc(r.musteri.ad||'Müşteri')+'</div></div>').join(''):'')+
+   '<button class="btn" style="margin:10px 0 6px" data-act="rvYeni">📅 Yeni randevu</button><button class="btn gray" data-act="kapat">Kapat</button>';
+  const sh=openSheet(h);attachBinder(sh.sheet,{root:{},act:(a,ds)=>{if(a==='kapat')closeSheet(sh);else rvAct(a,ds,sh);}});
+}
+function rvDetaySheet(id){
+  const r=rvBul(id);if(!r)return;
+  let h='<h3 style="margin:0 0 6px;color:var(--navy)">'+esc(r.musteri.ad||'Müşteri')+'</h3><div class="kv"><span>Randevu</span><b>'+fmtDate(r.tarih+'T00:00:00')+' · '+esc(r.saat||'—')+'</b></div><div class="kv"><span>Telefon</span><span>'+esc(r.musteri.tel||'—')+'</span></div><div class="kv"><span>Konum</span><span>'+rvKonumTxt(r)+'</span></div>'+
+   (r.adres?'<div class="kv"><span>Adres</span><span>'+esc(r.adres)+'</span></div>':'')+(r.not?'<div class="kv"><span>Not</span><span>'+esc(r.not)+'</span></div>':'')+
+   (r.durum==='tamam'?'<div class="okbox" style="margin-top:8px">✓ Ziyaret yapıldı'+(r.tamamZaman?' ('+fDate2(r.tamamZaman)+')':'')+'</div>'+(r.ziyaretId&&S.ziyaretler.some(z=>z.id===r.ziyaretId)?'<button class="btn sec" style="margin-bottom:8px" data-act="rvZiyaret" data-id="'+r.id+'">Ziyaret kaydını aç</button>':''):'')+
+   (r.durum==='iptal'?'<div class="warnbox" style="margin-top:8px">İptal edildi ('+fDate2(r.iptal&&r.iptal.zaman||r.guncelleme)+')</div><button class="btn sec" style="margin-bottom:8px" data-act="rvGeriAl" data-id="'+r.id+'">İptali geri al</button>':'')+
+   (r.durum==='bekliyor'?'<div class="row" style="margin:10px 0 8px">'+(r.musteri.tel?'<a class="btn sec" style="text-align:center;text-decoration:none" data-act="rvNoop" href="'+esc(telHref(r.musteri.tel))+'">📞 Ara</a>':'')+(r.konum?'<button class="btn sec" data-act="rvYol" data-id="'+r.id+'">🧭 Yol tarifi</button>':'<button class="btn sec" data-act="rvKonum" data-id="'+r.id+'">📍 Konum ekle</button>')+'</div><div class="row" style="margin-bottom:8px"><button class="btn sec" data-act="takvimRv" data-id="'+r.id+'">📅 Takvime ekle</button><button class="btn sec" data-act="rvDuzenle" data-id="'+r.id+'">Düzenle / Ertele</button></div><button class="btn ok" style="margin-bottom:8px" data-act="rvBasla" data-id="'+r.id+'">✅ Ziyareti başlat</button><button class="btn bad" data-act="rvIptal" data-id="'+r.id+'">İptal et</button>':'');
+  const sh=openSheet(h);attachBinder(sh.sheet,{root:{},act:(a,ds)=>rvAct(a,ds,sh)});
+}
+function rvKonumBlok(r){return '<div class="card" style="margin:8px 0"><h3>Konum (isteğe bağlı)</h3><div class="kv"><span>Durum</span><span id="rvKonumDurum">'+rvKonumTxt(r)+'</span></div><div class="row" style="margin:8px 0"><button type="button" class="btn sm sec" data-act="rvBuradayim">📍 Buradayım</button><button type="button" class="btn sm sec" data-act="rvHarita">🗺️ Haritadan seç</button></div><label class="fld"><span>Konum bağlantısı (WhatsApp / Haritalar)</span><input id="rvLink" placeholder="Bağlantıyı buraya yapıştırın" autocomplete="off"></label><div class="row"><button type="button" class="btn sm sec" data-act="rvLinkUygula">Bağlantıyı uygula</button>'+(r.konum?'<button type="button" class="btn sm gray" data-act="rvKonumSil">Konumu sil</button>':'')+'</div></div>';}
+async function rvKonumAct(a,r,sh,degisti){
+  const now=new Date().toISOString();
+  if(a==='rvBuradayim'){toast('Konum alınıyor…',8000);const p=await getPos(10000);if(!p){toast('Konum alınamadı — haritadan seçin');return;}r.konum={lat:p.lat,lon:p.lon,kaynak:'gps',zaman:now,baglanti:''};toast('Konum işaretlendi');degisti();}
+  if(a==='rvHarita'){mapPicker(r.konum&&r.konum.lat!=null?r.konum:null,(lat,lon)=>{r.konum={lat,lon,kaynak:'harita',zaman:new Date().toISOString(),baglanti:''};degisti();});}
+  if(a==='rvLinkUygula'){const v=(sh.sheet.querySelector('#rvLink').value||'').trim();if(!v){toast('Önce bağlantıyı yapıştırın');return;}const c=konumCoz(v);
+    if(c){r.konum={lat:c.lat,lon:c.lon,kaynak:'baglanti',zaman:now,baglanti:v};toast('Konum bağlantıdan okundu');degisti();}
+    else if(/^https?:\/\//i.test(v)){r.konum={lat:null,lon:null,kaynak:'baglanti',zaman:now,baglanti:v};toast('Koordinat okunamadı; bağlantı olduğu gibi saklandı (Yol tarifi bağlantıyı açar)',4500);degisti();}
+    else toast('Geçerli bir konum bağlantısı değil');}
+  if(a==='rvKonumSil'){r.konum=null;degisti();}
+}
+function rvForm(id){
+  const mevcut=id?rvBul(id):null;const r=mevcut?clone(mevcut):rvYeniObj();const ctx={root:{r}};let sh;
+  const draw=()=>{sh.sheet.innerHTML='<h3 style="margin:0 0 8px;color:var(--navy)">'+(mevcut?'Randevuyu düzenle':'Yeni randevu')+'</h3>'+
+    fInp(ctx,'r.musteri.ad','Müşteri adı',{up:1})+fInp(ctx,'r.musteri.tel','Telefon',{type:'tel'})+'<div class="row">'+fInp(ctx,'r.tarih','Tarih',{type:'date'})+fInp(ctx,'r.saat','Saat',{type:'time'})+'</div>'+fInp(ctx,'r.adres','Adres / tarif (isteğe bağlı)',{up:1})+fInp(ctx,'r.not','Not (isteğe bağlı)',{up:1})+rvKonumBlok(r)+
+    '<div class="row"><button class="btn ok" data-act="rvKaydet">Kaydet</button><button class="btn gray" data-act="rvVazgec">Vazgeç</button></div>';};
+  sh=openSheet('');draw();
+  attachBinder(sh.sheet,{root:ctx.root,act:async(a,ds)=>{
+    if(a==='rvVazgec'){closeSheet(sh);return;}
+    if(a==='rvKaydet'){
+      if(!(r.musteri.ad||'').trim()){toast('Müşteri adı gerekli');return;}
+      if(!r.tarih){toast('Tarih gerekli');return;}
+      if(r.musteri.tel&&telEksik(r.musteri.tel)&&!confirm('Telefon eksik ('+(r.musteri.tel.replace(/\D/g,'').length)+'/11 hane). Yine de kaydedilsin mi?'))return;
+      r.musteri.tel=telFmt(r.musteri.tel);r.guncelleme=new Date().toISOString();
+      const i=S.randevular.findIndex(x=>x.id===r.id);if(i>=0)S.randevular[i]=r;else S.randevular.push(r);
+      await save();closeSheet(sh);render();toast(mevcut?'Randevu güncellendi':'Randevu kaydedildi');return;}
+    await rvKonumAct(a,r,sh,()=>{const e=sh.sheet.querySelector('#rvKonumDurum');if(e)e.innerHTML=rvKonumTxt(r);});
+  }});
+}
+function rvKonumSheet(id){
+  const r=rvBul(id);if(!r)return;
+  const sh=openSheet('<h3 style="margin:0 0 6px;color:var(--navy)">Konum ekle — '+esc(r.musteri.ad||'Müşteri')+'</h3>'+rvKonumBlok(r)+'<button class="btn gray" data-act="kapat">Kapat</button>');
+  attachBinder(sh.sheet,{root:{},act:async(a)=>{if(a==='kapat'){closeSheet(sh);return;}
+    await rvKonumAct(a,r,sh,async()=>{r.guncelleme=new Date().toISOString();await save();render();const e=sh.sheet.querySelector('#rvKonumDurum');if(e)e.innerHTML=rvKonumTxt(r);});}});
+}
+function rvYol(r){const k=r&&r.konum;if(!k)return;
+  if(k.lat!=null){window.open(isIOS()?'https://maps.apple.com/?daddr='+k.lat+','+k.lon+'&dirflg=d':'https://www.google.com/maps/dir/?api=1&destination='+k.lat+','+k.lon,'_blank');}
+  else if(k.baglanti)window.open(k.baglanti,'_blank');}
+async function rvTakvim(r){
+  const saat=(r.saat||'09:00').replace(':','');
+  const ics=icsUret({uid:r.id,tarih:r.tarih,baslik:'D2D randevu ('+(r.saat||'09:00')+')',aciklama:'D2D Rapor — müşteri randevusu. Müşteri ve konum bilgisi için uygulamaya bakın.',saat,sureDk:30});
+  await icsPaylas(ics,'d2d-randevu-'+r.tarih.replace(/-/g,'')+'.ics','D2D randevu');
+}
+function rvBasla(id){
+  const r=rvBul(id);if(!r||r.durum!=='bekliyor')return;if(gerekliKurulum())return;
+  D=yeniTaslak();D.tmp={};D.z.randevuId=r.id;const m=D.z.musteriler[0];m.ad=r.musteri.ad||'';m.tel=r.musteri.tel||'';
+  const pinli=!!(r.konum&&r.konum.lat!=null);
+  if(pinli)D.b.pin={lat:r.konum.lat,lon:r.konum.lon,kaynak:'harita',zaman:new Date().toISOString()};
+  formSheet();baslangicKonum();
+  if(pinli)toast('Randevu konumu bina pini olarak işaretlendi; yerinde "Buradayım" ile güncelleyebilirsiniz',4500);
+}
+async function rvAct(a,ds,sh){
+  const r=ds&&ds.id?rvBul(ds.id):null;
+  if(a==='rvNoop')return;
+  if(a==='rvYeni'){if(sh)closeSheet(sh);rvForm(null);return;}
+  if(a==='rvListe'){rvListeSheet();return;}
+  if(a==='rvDetay'){rvDetaySheet(ds.id);return;}
+  if(!r)return;
+  if(a==='rvYol')rvYol(r);
+  if(a==='rvKonum'){if(sh)closeSheet(sh);rvKonumSheet(r.id);}
+  if(a==='takvimRv')rvTakvim(r);
+  if(a==='rvBasla'){if(sh)closeSheet(sh);rvBasla(r.id);}
+  if(a==='rvDuzenle'){if(sh)closeSheet(sh);rvForm(r.id);}
+  if(a==='rvZiyaret'){if(sh)closeSheet(sh);detaySheet(r.ziyaretId);}
+  if(a==='rvIptal'){if(!confirm('Randevu iptal edilsin mi?'))return;r.durum='iptal';r.iptal={zaman:new Date().toISOString()};r.guncelleme=r.iptal.zaman;await save();if(sh)closeSheet(sh);render();toast('Randevu iptal edildi');}
+  if(a==='rvGeriAl'){r.durum='bekliyor';r.iptal=null;r.guncelleme=new Date().toISOString();await save();if(sh)closeSheet(sh);render();toast('Randevu geri alındı');}
+}
 function takiplerHtml(today){
   const t=takipHesapla(S.ziyaretler,today,7);if(!t.length)return '';
   const gec=t.filter(x=>x.fark<0).length,bug=t.filter(x=>x.fark===0).length,yak=t.filter(x=>x.fark>0).length;
@@ -1463,15 +1591,17 @@ function takiplerHtml(today){
   h+=t.map(x=>{const z=S.ziyaretler.find(q=>q.id===x.zid),m=z.musteriler.find(q=>q.id===x.mid),b=binaOf(z);
     const rz=x.fark<0?'<span class="rz b-asan">'+(-x.fark)+' gün gecikti</span>':x.fark===0?'<span class="rz b-1000">Bugün</span>':'<span class="rz b-500">'+x.fark+' gün sonra</span>';
     const ara=m.tel?'<a class="aramabtn" href="'+esc(telHref(m.tel))+'">📞 Ara</a>':'';
-    return '<div class="vi"><div class="t">'+esc(b.ad)+(z.giris?' ('+esc(z.giris)+')':'')+'</div><div class="s">'+esc(m.ad||'Müşteri')+' · '+fmtDate(x.tarih+'T00:00:00')+' · '+esc(label(SONUCLAR,m.sonuc)||'—')+'</div>'+rz+
+    return '<div class="vi"><div class="t">'+esc(binaAdi(b.ad,z.giris))+'</div><div class="s">'+esc(m.ad||'Müşteri')+' · '+fmtDate(x.tarih+'T00:00:00')+' · '+esc(label(SONUCLAR,m.sonuc)||'—')+'</div>'+rz+
      '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">'+ara+'<button class="btn sm sec" style="width:auto" data-act="takvim" data-z="'+z.id+'" data-m="'+m.id+'">📅 Takvime ekle</button><button class="btn sm gray" style="width:auto" data-act="takipTamam" data-z="'+z.id+'" data-m="'+m.id+'">✓ Tamam</button></div></div>';}).join('');
   return h;
 }
 async function takvimeEkle(zid,mid){
   const z=S.ziyaretler.find(q=>q.id===zid);if(!z)return;const m=z.musteriler.find(q=>q.id===mid);if(!m||!m.takip)return;const b=binaOf(z);
-  const ics=icsUret({uid:mid,tarih:m.takip,baslik:'D2D dönüş: '+b.ad+(z.giris?' ('+z.giris+')':''),aciklama:'D2D Rapor — dönüş yapılacak. Müşteri bilgisi için uygulamaya bakın.',saat:'0900',sureDk:30});
-  const ad='d2d-donus-'+m.takip.replace(/-/g,'')+'.ics';
-  try{const f=new File([ics],ad,{type:'text/calendar'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'D2D dönüş'});toast('Takvime eklemek için menüden Takvim\'i seçin');return;}}catch(e){if(e&&e.name==='AbortError')return;}
+  const ics=icsUret({uid:mid,tarih:m.takip,baslik:'D2D dönüş: '+binaAdi(b.ad,z.giris),aciklama:'D2D Rapor — dönüş yapılacak. Müşteri bilgisi için uygulamaya bakın.',saat:'0900',sureDk:30});
+  await icsPaylas(ics,'d2d-donus-'+m.takip.replace(/-/g,'')+'.ics','D2D dönüş');
+}
+async function icsPaylas(ics,ad,baslik){
+  try{const f=new File([ics],ad,{type:'text/calendar'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:baslik});toast('Takvime eklemek için menüden Takvim\'i seçin');return;}}catch(e){if(e&&e.name==='AbortError')return;}
   indir(ad,ics,'text/calendar');toast('.ics indirildi: dosyaya dokunup Takvim\'de açın');
 }
 async function takipTamam(zid,mid){
@@ -1494,11 +1624,12 @@ function viewBugun(){
   if(isIOS()&&!isStandalone())h+='<div class="warnbox" style="margin-bottom:8px"><b>📲 Ana Ekrana ekleyin</b><br>'+IOS_YONERGE+' Eklenmezse iPhone, uygulama bir hafta açılmazsa kayıtları silebilir.</div>';
   const gg=gecmisGirisler(today);
   if(gg.length)h+='<div class="info" style="margin-bottom:8px">📝 Bugün '+gg.length+' geçmiş tarihli kayıt girildi ('+[...new Set(gg.map(z=>fmtDate(z.baslangic.zaman)))].join(', ')+'). Yukarıdaki sayılara dahil değildir.</div>';
-  h+='<div class="row" style="margin-bottom:8px"><button class="btn" style="padding:15px" data-act="yeni">➕ Yeni Ziyaret</button><button class="btn sec" style="padding:15px" data-act="hizli">📍 Hızlı Pin</button></div>';
+  h+='<div class="row" style="margin-bottom:8px"><button class="btn" style="padding:15px" data-act="yeni">➕ Yeni Ziyaret</button><button class="btn sec" style="padding:15px" data-act="hizli">📍 Hızlı Pin</button></div><div class="row" style="margin-bottom:8px"><button class="btn sec" style="padding:12px" data-act="rvYeni">📅 Randevu ekle</button></div>';
   const bk=S.ziyaretler.filter(z=>z.durum==='bekliyor'&&!z.iptal).sort((a,b)=>new Date(a.olusturma||a.baslangic.zaman)-new Date(b.olusturma||b.baslangic.zaman));
   if(bk.length){const eski=bk.filter(z=>bekleyenSaat(z)>=24).length;h+='<div class="'+(eski?'warnbox':'info')+'"><b>⏳ Bekleyen kayıt: '+bk.length+'</b>'+(eski?' — '+eski+' tanesi 24 saatten fazla bekliyor':'')+'</div>'+bk.map(ziyaretKart).join('');}
   h+='<div class="row" style="margin-bottom:10px"><button class="btn sec" data-act="gonder">📤 Günü Kapat / Gönder'+(bek?' ('+bek+')':'')+'</button><button class="btn sec" data-act="kartlar">📋 Günün kartları</button></div>';
   if(bek)h+='<div class="info">'+bek+' kayıt henüz gönderilmedi'+(S.ayar.sonGonderim?' (son gönderim: '+fDate2(S.ayar.sonGonderim)+')':'')+'.</div>';
+  h+=randevularHtml(today);
   h+=takiplerHtml(today);
   h+='<div class="card"><h3>Bu ay</h3><div class="kv"><span>Ziyaret</span><b>'+ay.length+'</b></div>'+(Object.keys(aySat).length?Object.entries(aySat).map(([k,v])=>'<div class="kv"><span>Satış — '+esc(k)+'</span><b>'+v+'</b></div>').join(''):'<div class="kv"><span>Satış</span><b>0</b></div>')+'<div class="kv"><span>Dönüşüm (FTTH)</span><b>'+donusumSayisi(ay)+'</b></div></div>';
   h+='<div class="day">Bugünün ziyaretleri</div>'+(list.filter(z=>z.durum!=='bekliyor').length?list.filter(z=>z.durum!=='bekliyor').map(ziyaretKart).join(''):'<div class="empty">Bugün henüz tamamlanmış kayıt yok</div>')+(gg.length?'<div class="day">Bugün girilen geçmiş tarihli kayıtlar</div>'+gg.map(ziyaretKart).join(''):'');
@@ -1583,6 +1714,7 @@ async function yedekYukle(file){
   try{const j=JSON.parse(await file.text());if(j.sema!=='d2d-yedek')throw new Error('Geçersiz yedek dosyası');
     const r=deserialize(j.durum);const b=mergeById(S.binalar,r.binalar,x=>new Date(x.guncelleme||0).getTime());S.binalar=b.list;
     const z=mergeById(S.ziyaretler,r.ziyaretler,x=>x.surum||1);S.ziyaretler=z.list;
+    S.randevular=mergeById(S.randevular||[],r.randevular||[],x=>new Date(x.guncelleme||0).getTime()).list;
     if(!S.ilceMahalle.length&&r.ilceMahalle.length)S.ilceMahalle=r.ilceMahalle;
     if(!S.ayar.adSoyad&&r.ayar.adSoyad){S.ayar.adSoyad=r.ayar.adSoyad;S.ayar.kod=r.ayar.kod;}
     temizlik();await save();render();toast('Yüklendi: '+z.n+' ziyaret, '+b.n+' bina');
@@ -1616,6 +1748,7 @@ function olaylar(){
   app.addEventListener('click',async e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act,id=a.dataset.id;
     if(act==='yeni')formAc(false);
     if(act==='hizli')hizliAc();
+    if(typeof act==='string'&&(act.startsWith('rv')||act==='takvimRv'))rvAct(act,{id:a.dataset.id},null);
     if(act==='takvim')takvimeEkle(a.dataset.z,a.dataset.m);
     if(act==='takipTamam')takipTamam(a.dataset.z,a.dataset.m);
     if(act==='taslakDevam')formAc(true);
@@ -1628,7 +1761,7 @@ function olaylar(){
     if(act==='binaDetay')binaDetay(id);
     if(act==='yedekAl'){indir('d2d-yedek-'+(slug(S.ayar.kod)||'kullanici')+'-'+pad2(new Date())+'.json',JSON.stringify({sema:'d2d-yedek',surum:1,olusturma:new Date().toISOString(),durum:serialize(S)}));toast('Yedek indirildi');}
     if(act==='yedekYukle')$('#yedekFile').click();
-    if(act==='testTemizle'){if(confirm('Bu telefondaki TÜM ziyaret ve bina kayıtları silinecek (kullanıcı bilgisi ve ilçe/mahalle listesi kalır). Önce Yedek Al kullanın. Devam edilsin mi?')){S.ziyaretler=[];S.binalar=[];S.taslak=null;S.ayar.sonGonderim=null;await save();render();toast('Test verileri temizlendi');}}
+    if(act==='testTemizle'){if(confirm('Bu telefondaki TÜM ziyaret ve bina kayıtları silinecek (kullanıcı bilgisi ve ilçe/mahalle listesi kalır). Önce Yedek Al kullanın. Devam edilsin mi?')){S.ziyaretler=[];S.binalar=[];S.randevular=[];S.taslak=null;S.ayar.sonGonderim=null;await save();render();toast('Test verileri temizlendi');}}
     if(act==='listeYukle')$('#listeFile').click();
     if(act==='listeSil'){if(confirm('Özel liste silinip gömülü listeye dönülsün mü?')){S.ilceMahalle=[];await save();render();}}
     if(act==='surumNotlari')surumSheet();
