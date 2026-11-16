@@ -785,8 +785,10 @@ a.aramabtn{display:inline-block;background:#1e8e3e;color:#fff;border-radius:8px;
 <script>
 'use strict';
 /* ================= SABİTLER ================= */
-const APP_VERSION='1.0.7', APP_DATE='16.11.2026', BUILD_SUFFIX='-offline';
-const CHANGELOG=[{v:'1.0.7',t:'16.11.2026',n:[
+const APP_VERSION='1.0.8', APP_DATE='16.11.2026', BUILD_SUFFIX='-offline';
+const CHANGELOG=[{v:'1.0.8',t:'16.11.2026',n:[
+ 'BM kartı: bina adında "müstakil" geçiyorsa kartta Bina Adı yalnızca "Müstakil" yazar (sokak/kapı no uygulamada ve pakette kalır; WhatsApp kartına gitmez)'
+]},{v:'1.0.7',t:'16.11.2026',n:[
  'Bugün ekranında "Takipler" kutusu: dönüş/takip tarihi gelen, bugün olan ve 7 gün içinde yaklaşan müşteriler; Ara, Takvime ekle ve Tamam düğmeleri',
  'Takvime ekle: telefonun takvimine 09:00 hatırlatıcılı etkinlik (müşteri adı ve telefon takvime yazılmaz, yalnızca bina adı); Paylaş menüsü ya da .ics indirme',
  'Takibi tamamlama kaydı (paketle PY/Panel\'e de gider)'
@@ -903,7 +905,7 @@ function saatAraligi(z){
 function kartMetni(z,b){
   const isimler=(z.musteriler||[]).map(m=>(m.ad||'').trim()).filter(Boolean);
   const ilm=[b.ilce,b.mahalle].filter(Boolean).join(' / ');
-  const binaAd=(b.ad||'')+(z.giris&&z.giris.trim()?' ('+z.giris.trim()+')':'');
+  const binaAd=/müstakil/.test(trLower(b.ad||''))?'Müstakil':(b.ad||'')+(z.giris&&z.giris.trim()?' ('+z.giris.trim()+')':'');
   let musteri;
   if(isimler.length<=1)musteri='👤 *Müşteri Adı*: '+(isimler[0]||'—');
   else musteri='👤 *Müşteri Adı*:\n'+isimler.map(x=>'- '+x).join('\n');
