@@ -23,7 +23,13 @@ nav#tabs button .ic{display:block;font-size:20px;line-height:22px}
 nav#tabs button.on{color:var(--navy);font-weight:600}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
 .card h3{margin:0 0 8px;font-size:14px;color:var(--navy)}
-.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.telwrap{position:relative}
+.telwrap .ghost{position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:15px;font-family:inherit;color:#aab3bd;white-space:pre;pointer-events:none}
+.telwrap .ghost i{color:transparent;font-style:normal}
+.telwrap input{position:relative;z-index:1;background:transparent}
+.telwrap{background:#fff;border-radius:9px}
+input.tel-eksik{border-color:var(--bad)!important;background:#fff5f5}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:10px}
 .tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 4px;text-align:center}
 .tile b{display:block;font-size:22px;color:var(--navy)}
 .tile span{font-size:11px;color:var(--mut)}
@@ -83,6 +89,8 @@ pre.kart{background:#fff;border:1px dashed #9fb0c0;border-radius:10px;padding:10
 .chg h4{margin:10px 0 4px;color:var(--navy)}.chg ul{margin:0 0 6px 18px;padding:0}.chg li{margin:2px 0;font-size:13px}
 .empty{text-align:center;color:var(--mut);padding:26px 10px;font-size:14px}
 a.tel{color:var(--navy);font-weight:600;text-decoration:none}
+a.aramabtn{display:inline-block;background:#1e8e3e;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;text-decoration:none;margin-left:6px}
+.aramasatir{margin:-4px 0 9px}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #eef0f3;font-size:14px}.kv span:first-child{color:var(--mut)}
 </style>
 </head>
@@ -101,8 +109,22 @@ a.tel{color:var(--navy);font-weight:600;text-decoration:none}
 <script>
 'use strict';
 /* ================= SABİTLER ================= */
-const APP_VERSION='1.0.1', APP_DATE='12.11.2026', BUILD_SUFFIX='';
-const CHANGELOG=[{v:'1.0.1',t:'12.11.2026',n:[
+const APP_VERSION='1.0.4', APP_DATE='16.11.2026', BUILD_SUFFIX='';
+const CHANGELOG=[{v:'1.0.4',t:'16.11.2026',n:[
+ 'İlçe/mahalle listesi uygulamanın içine gömüldü (9 ilçe, 569 mahalle); CSV yüklemeye gerek yok, yüklenirse özel liste olarak o kullanılır',
+ 'Mail alıcısı varsayılan olarak D2D mail grubu (yuregirtmd2d@turktelekom.com.tr) geldi; Ayarlar\'dan değiştirilebilir',
+ 'Günün kartları: gün sonu için tek mesajda toplu kart metni (başlık + her ziyaret kendi kartında, saat sırasıyla); WhatsApp\'ta paylaş / kopyala'
+]},{v:'1.0.3',t:'13.11.2026',n:[
+ 'Hızlı Pin: binanın önünde yalnızca konum + bina adıyla 10 saniyede kayıt; müşteri ve sonuç sonra girilir',
+ 'Bekleyen kayıtlar: Bugün ekranında listelenir, "Tamamla" ile müşteri/sonuç girilince kart oluşur; 24 saatten uzun bekleyenler kırmızı uyarı alır, Günü Kapat\'ta hatırlatılır',
+ 'Telefon girişi PY/Panel biçimine (05xx xxx xx xx) alındı: soluk şablon, yalnızca rakam, en fazla 11 hane, eksik numara kırmızı ve kayıtta uyarı (v1.0.2\'deki +90(...) biçimi kaldırıldı)'
+]},{v:'1.0.2',t:'13.11.2026',n:[
+ 'Telefon numaraları otomatik +90(5xx) xxx xx xx biçimine getirilir (müşteri ve yönetici)',
+ 'Yeni sonuç: "Dönüşüm" (bakır → FTTH). Kartta ve istatistikte ayrı sayılır',
+ 'Yönetici ve müşteri telefonlarının yanında "Ara" düğmesi',
+ 'Günü Kapat: dosyalı paylaşım birkaç dosya türüyle denenir; olmazsa "Mail aç" (alıcı, konu ve kart metni hazır gelir, dosya telefona iner, mailde Ekle ile eklenir)',
+ 'Ayarlar\'daki mail alıcıları artık "Mail aç" ile otomatik doldurulur'
+]},{v:'1.0.1',t:'12.11.2026',n:[
  'KVKK karıştırma, Portföy Yönetimi ve Panel ile birebir uyumlu hale getirildi (aynı anahtar, ~K~ öneki, aynı yöntem); PY/Panel\'in çözücüsüyle doğrulandı',
  'Harita altlığı CARTO Voyager oldu (CBS aracındaki kurumsal anahtar); uydu görünümü Esri; CARTO açılmazsa OpenStreetMap\'e otomatik geçiş',
  'Ayarlar\'a "Test verilerini temizle" eklendi (ziyaret ve bina kayıtlarını siler, kullanıcı bilgisi ve ilçe/mahalle listesi kalır)',
@@ -119,7 +141,7 @@ const CHANGELOG=[{v:'1.0.1',t:'12.11.2026',n:[
  'Yedek Al / Yedekten Yükle; ilçe-mahalle listesi CSV ile yüklenir'
 ]}];
 const URUNLER=[{k:'DSL',kat:'DSL'},{k:'TV',kat:'TV'},{k:'Mobil',kat:'Mobil'},{k:'TurboBox',kat:'Mobil'},{k:'Magnet',kat:'Mobil'},{k:'PSTN',kat:'PSTN'},{k:'Cihaz',kat:'Cihaz'},{k:'Kurumsal Ürün',kat:'Kurumsal Ürün'}];
-const SONUCLAR=[{k:'satis',l:'Satış'},{k:'on_talep',l:'Ön talep'},{k:'teklif',l:'Teklif verildi'},{k:'bilgilendirme',l:'Bilgilendirme'},{k:'ret',l:'Ret'},{k:'ulasilamadi',l:'Ulaşılamadı'},{k:'yonetici',l:'Yönetici görüşüldü'}];
+const SONUCLAR=[{k:'satis',l:'Satış'},{k:'on_talep',l:'Ön talep'},{k:'teklif',l:'Teklif verildi'},{k:'bilgilendirme',l:'Bilgilendirme'},{k:'ret',l:'Ret'},{k:'ulasilamadi',l:'Ulaşılamadı'},{k:'donusum',l:'Dönüşüm (FTTH)'},{k:'yonetici',l:'Yönetici görüşüldü'}];
 const OPERATORLER=[{k:'tt',l:'Türk Telekom'},{k:'turkcell',l:'Turkcell Superonline'},{k:'vodafone',l:'Vodafone'},{k:'diger',l:'Diğer'},{k:'bilmiyor',l:'Bilmiyor'}];
 const IZIN=[{k:'sorulmadi',l:'Sorulmadı'},{k:'evet',l:'Evet, iletişim izni var'},{k:'hayir',l:'Hayır'}];
 const ALTYAPI=[{k:'bilinmiyor',l:'Bilinmiyor'},{k:'hazir',l:'Hazır'},{k:'hazirlanacak',l:'Hazırlanacak'},{k:'yok',l:'Yok'}];
@@ -128,6 +150,8 @@ const SAKLAMA_GUN=60, PAKET_GUN=7, YAKIN_BINA_M=60;
 const KARISTIR_ANAHTAR='yuregirtm'; // PY/Panel KVKK_ANAHTAR ile aynı
 const IDB_NAME='d2dRapor_db_v1', IDB_STORE='kv', LS_KEY='d2dRapor:state';
 const KAT_OF=Object.fromEntries(URUNLER.map(u=>[u.k,u.kat]));
+const ILCE_GOMULU=[{"ilce":"CEYHAN","mahalleler":["ADAPINAR","ADATEPE","AKDAM","ALTIGÖZBEKİRLİ","ALTIKARA","ALTIOCAK","ATATÜRK","AYDEMİROĞLU","AYDINLAR","AZİZLİ","AĞAÇLI","AĞAÇPINAR","BAŞÖREN","BELEDİYE EVLERİ","BİRKENT","BOTA","BURHANİYE","BURHANLI","BÜYÜKBURHANİYE","BÜYÜKKIRIM","BÜYÜKMANGIT","CAMUZAĞILI","CEYHANBEKİRLİ","CİVANTAYAK","CUMHURİYET","DAĞISTAN","DEĞİRMENDERE","DEĞİRMENLİ","DİKİLİTAŞ","DOKUZTEKNE","DORUK","DURHASANDEDE","DUTLUPINAR","EKİNYAZI","ELMAGÖLÜ","EMEK","ERENLER","ESENTEPE","FATİH SULTAN MEHMET","GAZİ OSMAN PAŞA","GÜMÜRDÜLÜ","GÜNDOĞAN","GÜNLÜCE","HAMDİLLİ","HAMİDİYE","HAMİTBEY","HAMİTBEYBUCAĞI","HÜRRİYET","İMRAN","İNCEYER","İNÖNÜ","İSALI","İSTİKLAL","KARAKAYALI","KELEMETİ","KONAKOĞLU","KORUKLU","KURTKULAĞI","KURTPINAR","KUZUCAK","KÖPRÜLÜ","KÖRKUYU","KÖSRELİ","KÜÇÜKBURHANİYE","KÜÇÜKKIRIM","KÜÇÜKMANGIT","KILIÇKAYA","KIVRIKLI","KIZILDERE","MERCİMEK","MERCİN","MİTHAT PAŞA","MODERNEVLER","MURADİYE","MUSTAFABEYLİ","NAMIK KEMAL","NARLIK","NAZIMBEY YENİKÖY","SARIBAHÇE","SARIMAZI","SARIMAZI SB","SARISAKAL","SAĞKAYA","SAĞIRLAR","SELİMİYE","SİRKELİ","SOYSALLI","SOĞUKPINAR","TATARLI","TATLIKUYU","TOKTAMIŞ","TUMLU","ULUS","VEYSİYE","YALAK","YARSUAT","YELLİBEL","YEŞİLBAHÇE","YEŞİLDAM","YILANKALE","ZÜBEYDE HANIM","ÇAKALDERE","ÇATAKLI","ÇATALHÜYÜK","ÇEVRETEPE","ÇİFTLİKLER","ÇİÇEKLİ","ÇOKÇAPINAR","ÜÇDUTYEŞİLOVA","IRMAKLI","ISIRGANLI","ŞAHİN ÖZBİLEN","ŞEHİT HACI İBRAHİM"]},{"ilce":"FEKE","mahalleler":["AKKAYA","AKOLUK","BAHÇECİK","BAĞDATLI","BELENKÖY","DEĞİRMENCİUŞAĞI","GAFFARUŞAĞI","GEDİKLİ","GÖBELLİ","GÖKÇELİ","GÜRÜMZE","GÜZPINARI","HIDIRUŞAĞI","İNCİRCİ","İSLAM","KALEYÜZÜ","KARACAOĞLAN","KARACAUŞAĞI","KAYADİBİ","KAZANCI","KAŞALTI","KEKLİKÇİ","KONAKKURAN","KOVUKÇINAR","KOÇYAZI","KIRIKUŞAĞI","KISACIKLI","KIZILYER","MANSURLU","MUSALAR","OLUCAK","ORMANCIK","ORTAKÖY","ORUÇLU","PAŞALI","SÜLEMİŞLİ","SÜPHANDERE","TENKERLİ","TOKMANAKLI","TORTULU","UĞURLUBAĞ","YAYLAPINAR","YEREBAKAN","YEŞİL DÜŞMÜŞ","YEŞİLVADİ","ÇANDIRLAR","ÇONDU","ŞAHMURATLI"]},{"ilce":"KARATAŞ","mahalleler":["ADALI","ATAKÖY","BAHÇE","BEBELİ","DAMLAPINAR","DEVELİÖREN","DOLAPLI","GÖLKAYA","HACIHASAN","HASIRAĞACI","HELVACI","İNNEPLİHÜYÜĞÜ","İSAHACILI","KAPI","KARAGÖÇER","KARATAŞ","KARŞIYAKA","KEMALİYE","KESİK","KİREMİTLİ","KIRHASAN","KIZILTAHTA","MELETMEZ","ORTA","OYMAKLI","SARIMSAK","SİRKENLİ","TABAKLAR","TABUR","TERLİKSİZ","TOPRAKLI","TUZKUYUSU","TUZLA","YASSIVEREN","YEMİŞLİ","YENİ","YENİMURAT","YÜZBAŞI","ÇAKIRÖREN","ÇAVUŞLU","ÇAĞŞIRLI","ÇİMELİ","ÇUKURKAMIŞ"]},{"ilce":"KOZAN","mahalleler":["ACARMANTAŞ","AKARCA","AKDAM","AKKAYA","AKÇALIUŞAĞI","ALAPINAR","ANDIL","ARSLANLI","ARSLANPAŞA","AYDIN","AYŞEHOCA","AĞLIBOĞAZ","BAĞLAR","BAĞTEPE","BAĞÖZÜ","BOZTAHTA","BUCAK","BULDUKLU","CUMHURİYET","DAMYERİ","DİKİLİTAŞ","DİLEKKAYA","DOĞANALANI","DURALUŞAĞI","DURMUŞLU","DÜZAĞAÇ","ENİZÇAKIRI","ERGENUŞAĞI","ESKİKABASAKAL","ESKİMANTAŞ","FAYDALI","FERHATLI","GAZİ","GEDİKLİ","GÖKGÖZ","GÖKÇEYOL","GÖRBEYAZ","GÜNERİ","HACIBEYLİ","HACIMİRZALI","HACIUŞAĞI","HAMAM","İDEMKÖY","KABAKTEPE","KAHVELİ","KALKUMAÇ","KAPIKAYA","KARABUCAK","KARACAOĞLAN","KARACAÖREN","KARAHAMZALI","KARANEBİLİ","KEMERKÖY","KUYTUCAK","KUYUBELİ","KUYULUK","KÖSELİ","KIBRISLAR","KIZLARSEKİSİ","KIZILLAR","MAHMUTLU","MAHYALAR","MARANKEÇİLİ","MİNNETLİ","ORUÇLU","ORÇAN","PEKMEZCİ","POSTKABASAKAL","SALMANLI","TAVŞANTEPE","TAŞ","TEPECİKÖREN","TUFANLI","TUFANPAŞA","TURGUTLU","TURUNÇLU","TÜRKELİ","VARSAKLAR","VELİCANLI","YANALERİK","YARIMOĞLU","YASSIÇALI","YENİKÖY","YUKARIKEÇİLİ","YÜKSEKÖREN","ZERDALİ","ÇAMDERE","ÇAMLARCA","ÇANAKLI","ÇANDIK","ÇELENUŞAĞI","ÇOBANPINARI","ÇOKAK","ÇUKURÖREN","ÇULLUUŞAĞI","ÇÜRÜKLÜ","ÖRENDERE","ÖZBAŞI","ILICA","IŞIKKAYA","IŞIKLI","ŞERİFLİ","ŞEVKİYE"]},{"ilce":"SARIÇAM","mahalleler":["ACIDERE","ACIDEREOSB","AFLAK","AKKUYU","AVCILAR","AYDINYURDU","AYVALI","BALCALI","BAYRAM HACILI","BEYCELİ","BOYNUYOĞUN","BOZTEPE","BURUK CUMHURİYET","BÜYÜK BAKLALI","CERENLİ","CİHADİYE","DAĞCI","DUTLUCA","ELİF SU ULUDAĞ","ERTUĞRULGAZİ","ESENTEPE","EĞECİUŞAĞI","GÖKBUKET","GÖZTEPE","GÜLTEPE","HAKKIBEYLİ","HASANBEYLİ","HOCALLI","HÜRRİYET","İSTİKLAL","KARAYUSUFLU","KARAÖMERLİ","KARGAKEKEÇ","KARLIK","KAŞOBASI","KEMALPAŞA","KEPEZTEPE","KÖSEFAKILI","KÜÇÜKBAKLALI","KILBAŞ","KILIÇLI","KIZILKAŞ","MALTEPE","MEHMET AKİF ERSOY","MENEKŞE","MUSTAFALAR","MÜMİNLİ","ORHANGAZİ","OSMANGAZİ","REMZİ OĞUZ ARIK","SARIÇAM","SOFUDEDE","SULUCA","TURUNÇLU","YARIMCA","YAVUZ SULTAN SELİM","YAĞIZLAR","YENİ","YENİYAYLA","YEŞİLTEPE","YÜREKLİ","YILDIRIM BEYAZIT","ÇAMLICA","ÇARKIPARE","ÇAYLI","ÇİRİŞGEDİĞİ","ÇİÇEKLİ","ÇINARLI","ÜNLÜCE","ŞAHİNTEPE"]},{"ilce":"SAİMBEYLİ","mahalleler":["AKSAAĞAÇ","AVCIPINARI","AYVACIK","BEYPINARI","CUMHURLU","DEĞİRMENCİUŞAĞI","EYÜPLÜ","FATİH","GÖKMENLER","GÜRLEŞEN","HALİLBEYLİ","HİMMETLİ","İSLAM","KANDİLLİ","KAPAKLIKUYU","KARAKUYU","KIZILAĞAÇ","MAHMUTLU","NALTAŞ","NARLIDERE","TOPALLAR","TÜLÜ","YARDİBİ","YENİKÖY","YEŞİLBAĞLAR","ÇATAK","ÇERALAN","ÇORAK"]},{"ilce":"TUFANBEYLİ","mahalleler":["AKPINAR","AKÇAL","AYVAT","BOLATPINARI","BOZGÜNEY","CUMHURİYET","DAMLALI","DEMİROLUK","DOĞANBEYLİ","DOĞANLI","ELEMANLI","EVCİ","FATMAKUYU","GÜZELİM","HANYERİ","İSTİKLAL","İĞDEBEL","KARSAVRAN","KAYAPINAR","KAYARCIK","KİRAZLIYURT","KOCCAĞIZ","ORTAKÖY","PEKMEZLİ","PINARLAR","TAŞPINAR","TOZLU","YAMANLI","YENİCAMİ","YEŞİLOVA","ÇATALÇAM","ÇUKURKIŞLA","ŞAR"]},{"ilce":"YUMURTALIK","mahalleler":["AKDENİZ","AKYUVA","ASMALI","AYAS","AYVALIK","DEMİRTAŞ","DEVECİUŞAĞI","DEVRİŞİYE","GÖLOVASI","HAMZALI","HAYLAZLI","KALDIRIM","KALEMLİ","KEMALPAŞA","KESMEBURUN","KUZUPINARI","KIRMIZIDAM","NARLIÖREN","SUGÖZÜ","YENİKÖY","YEŞİLKÖY","YUMURTALIK","ZEYTİNBELİ","ÖREN"]},{"ilce":"YÜREĞİR","mahalleler":["19 MAYIS","ABDİOĞLU CUMHURİYET","AKARCALI","AKDAM","AKDENİZ","AKPINAR","AKINCILAR","ALİHOCALI","ANADOLU","ATAKENT","ATATÜRK","AYDINCIK","AĞZIBÜYÜK","BAHÇELİEVLER","BAŞAK","BELÖREN","BEYKÖY","BÜYÜKKAPILI","CAMİLİ","CİNE","CUMHURİYET","CIRIK","DADALOĞLU","DANIŞMENT","DEDE KORKUT","DEDEPINARI","DENİZKUYUSU","DERVİŞLER","DOĞANKENT BAHÇELİEVLER","DOĞANKENT CUMHURİYET","DOĞANKENT KIŞLA","DÜZCE","ESENLER","ESKİ MİSİS","EĞRİAĞAÇ","GAZİPAŞA","GEÇİTLİ CUMHURİYET","GÖKÇELİ","GÜMÜŞYAZI","GÜNEŞLİ","GÜVELOĞLU","GÜZEL CUMHURİYET","GÜZELEVLER","HACIALİ","HAVRANİYE","HAVUTLU","HAYDAROĞLU","HEREKLİ","KADIKÖY","KAMIŞLI","KARAAHMETLİ","KARACAOĞLAN","KAYARLI","KAZIM KARABEKİR","KAŞLICA","KİREMİTHANE","KOZA","KÖKLÜCE","KÖPRÜGÖZÜ","KÖPRÜLÜ","KÜTÜKLÜ","KIŞLA","LEVENT","MUTLU","P.T.T","PAŞAKÖY","PEKMEZLİ","SAKIZLI","SARIÇAM","SAZAK","SAĞDIÇLI","SELAHATTİN EYYUBİ","SERİNEVLER","SEYHAN","SİNANPAŞA","SOLAKLI CUMHURİYET","SOLAKLI HÜRRİYET","TAHSİLLİ","TAŞÇI","ULUBATLI HASAN","VAYVAYLI","YAHŞİLER","YAKAPINAR","YALNIZCA","YAMAÇLI","YAVUZLAR","YENİCE","YENİDOĞAN","YENİKÖY","YERDELEN","YEŞİL BAĞLAR","YUKARIÇİÇEKLİ","YUNUS EMRE","YUNUSOĞLU CUMHURİYET","YUNUSOĞLU HÜRRİYET","ZAĞARLI","ÇAMLIBEL","ÇATALPINAR","ÇAĞIRKANLI","ÇELEMLİ","ÇOTLU","ÖZGÜR","ÖZLER","IRMAKBAŞI","ŞAHİNAĞA","ŞEHİT ERKUT AKBAY","ŞEYHMURAT"]}];
+const VARSAYILAN_ALICI='yuregirtmd2d@turktelekom.com.tr';
 const label=(arr,k)=>(arr.find(x=>x.k===k)||{}).l||k||'';
 
 /*TEST-START*/
@@ -167,6 +191,7 @@ function musteriSonuc(m,ref){
     case 'bilgilendirme':t=u?u+' hakkında bilgilendirme yapıldı':'Ürün ve kampanya bilgilendirmesi yapıldı';break;
     case 'ret':t=(u?u+' teklifi ':'Görüşme ')+'olumsuz sonuçlandı';break;
     case 'ulasilamadi':t='Müşteriye ulaşılamadı';break;
+    case 'donusum':t=u?'Bakırdan FTTH\'a dönüşüm yapıldı ('+u+')':'Bakırdan FTTH\'a dönüşüm yapıldı';break;
     case 'yonetici':t='Bina yönetimi ile görüşüldü, bilgilendirme yapıldı';break;
     default:t='';
   }
@@ -193,8 +218,31 @@ function kartMetni(z,b){
   if(isimler.length<=1)musteri='👤 *Müşteri Adı*: '+(isimler[0]||'—');
   else musteri='👤 *Müşteri Adı*:\n'+isimler.map(x=>'- '+x).join('\n');
   const sonuc=(z.sonucMetni&&z.sonucMetni.trim())?z.sonucMetni.trim():sonucMetniUret(z);
-  return ['━━━━━━━━━━━━━━','📍 *TÜRK TELEKOM*','📋 *MÜŞTERİ ZİYARET KARTI'+(z.surum>1&&!z.iptal?' (DÜZELTME)':'')+'*','📅 *Tarih*: '+fmtDate(z.baslangic.zaman),'🕒 *Saat Aralığı*: '+saatAraligi(z),'📌 *İlçe / Mahalle*: '+(ilm||'—'),'🏢 *Bina Adı*: '+(binaAd||'—'),musteri,'📊 *Ziyaret Sonuç / Aksiyon*: '+(sonuc||'—')].join('\n');
+  return ['━━━━━━━━━━━━━━','📍 *TÜRK TELEKOM*','📋 *MÜŞTERİ ZİYARET KARTI'+(z.surum>(z.tamamSurum||1)&&!z.iptal?' (DÜZELTME)':'')+'*','📅 *Tarih*: '+fmtDate(z.baslangic.zaman),'🕒 *Saat Aralığı*: '+saatAraligi(z),'📌 *İlçe / Mahalle*: '+(ilm||'—'),'🏢 *Bina Adı*: '+(binaAd||'—'),musteri,'📊 *Ziyaret Sonuç / Aksiyon*: '+(sonuc||'—')].join('\n');
 }
+function telFmt(v){ /* kayıtlı/yapıştırılan numarayı PY/Panel biçimine (05xx xxx xx xx) çevirir; tanınmazsa aynen bırakır */
+  v=String(v==null?'':v).trim();if(!v)return v;
+  let d=v.replace(/\D/g,'');
+  if(d.length===12&&d.startsWith('90'))d=d.slice(2);else if(d.length===11&&d.startsWith('0'))d=d.slice(1);
+  if(d.length!==10||/^[01]/.test(d))return v;
+  d='0'+d;return d.slice(0,4)+' '+d.slice(4,7)+' '+d.slice(7,9)+' '+d.slice(9,11);
+}
+function telMask(raw){ /* yazarken: yalnızca rakam, 0 ile başlar, en fazla 11 hane */
+  let d=String(raw||'').replace(/\D/g,'');
+  if(d.length>11&&d.startsWith('90'))d=d.slice(2);
+  if(d.length&&d[0]!=='0')d='0'+d;
+  d=d.slice(0,11);let o=d;
+  if(d.length>4)o=d.slice(0,4)+' '+d.slice(4,7);
+  if(d.length>7)o+=' '+d.slice(7,9);
+  if(d.length>9)o+=' '+d.slice(9,11);
+  return o;
+}
+const TEL_MASK='05__ ___ __ __';
+function telGhost(v){const t=telMask(v);return '<i>'+esc(t)+'</i>'+esc(TEL_MASK.slice(t.length));}
+function telRakam(v){return String(v||'').replace(/\D/g,'').length;}
+function telEksik(v){const n=telRakam(v);return n>0&&n<11;}
+function telHref(v){const d=String(v||'').replace(/[^\d+]/g,'');return d?'tel:'+d:'';}
+function donusumSayisi(list){let n=0;list.forEach(z=>(z.musteriler||[]).forEach(m=>{if(m.sonuc==='donusum')n++;}));return n;}
 function ozet(z){return (z.musteriler||[]).map(m=>({sonuc:m.sonuc,urunler:(m.urunler||[]).map(u=>({urun:u.urun,adet:u.adet}))}));}
 function satisAdetleri(list){const o={};list.forEach(z=>(z.musteriler||[]).forEach(m=>{if(m.sonuc==='satis')(m.urunler||[]).forEach(u=>{const k=u.kat||KAT_OF[u.urun]||u.urun;o[k]=(o[k]||0)+u.adet;});}));return o;}
 function adetToplam(list,sonuc){let n=0;list.forEach(z=>(z.musteriler||[]).forEach(m=>{if(m.sonuc===sonuc)(m.urunler||[]).forEach(u=>{n+=u.adet;});}));return n;}
@@ -209,10 +257,11 @@ function mergeById(arr,incoming,verOf){const m=new Map(arr.map(x=>[x.id,x]));let
 /*TEST-END*/
 
 /* ================= DURUM VE DEPOLAMA ================= */
-let S={ayar:{adSoyad:'',kod:'',alicilar:'',sonGonderim:null,sonIlce:'',sonMahalle:''},binalar:[],ziyaretler:[],ilceMahalle:[],taslak:null};
+let S={ayar:{adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},binalar:[],ziyaretler:[],ilceMahalle:[],taslak:null};
 function serialize(s){const c={ayar:clone(s.ayar),ilceMahalle:s.ilceMahalle,binalar:s.binalar.map(b=>binaMap(b,enc)),ziyaretler:s.ziyaretler.map(z=>ziyaretMap(z,enc)),taslak:null,v:1};
   if(s.taslak)c.taslak={z:ziyaretMap(s.taslak.z,enc),b:binaMap(s.taslak.b,enc),edit:s.taslak.edit,ts:s.taslak.ts};return c;}
-function deserialize(r){const s={ayar:Object.assign({adSoyad:'',kod:'',alicilar:'',sonGonderim:null,sonIlce:'',sonMahalle:''},r.ayar||{}),ilceMahalle:r.ilceMahalle||[],binalar:(r.binalar||[]).map(b=>binaMap(b,dec)),ziyaretler:(r.ziyaretler||[]).map(z=>ziyaretMap(z,dec)),taslak:null};
+function deserialize(r){const s={ayar:Object.assign({adSoyad:'',kod:'',alicilar:VARSAYILAN_ALICI,sonGonderim:null,sonIlce:'',sonMahalle:''},r.ayar||{}),ilceMahalle:r.ilceMahalle||[],binalar:(r.binalar||[]).map(b=>binaMap(b,dec)),ziyaretler:(r.ziyaretler||[]).map(z=>ziyaretMap(z,dec)),taslak:null};
+  if(!s.ayar.alicilar)s.ayar.alicilar=VARSAYILAN_ALICI;
   if(r.taslak)s.taslak={z:ziyaretMap(r.taslak.z,dec),b:binaMap(r.taslak.b,dec),edit:r.taslak.edit,ts:r.taslak.ts};return s;}
 let _db=null;
 function idbOpen(){return new Promise((res,rej)=>{if(_db)return res(_db);if(typeof indexedDB==='undefined')return rej(new Error('idb yok'));const q=indexedDB.open(IDB_NAME,1);q.onupgradeneeded=()=>q.result.createObjectStore(IDB_STORE);q.onsuccess=()=>{_db=q.result;res(_db);};q.onerror=()=>rej(q.error);});}
@@ -258,16 +307,23 @@ window.addEventListener('popstate',()=>{if(skipPop>0){skipPop--;return;}const to
 
 function attachBinder(el,ctx){
   const setVal=t=>{const p=t.dataset.p;if(!p)return false;let v=t.type==='checkbox'?t.checked:t.value;if(t.dataset.num)v=v===''?'':Number(v);pset(ctx.root,p,v);return true;};
-  el.addEventListener('input',e=>{const t=e.target;if(t.dataset&&setVal(t)&&ctx.onInput)ctx.onInput(t.dataset.p,t);});
+  el.addEventListener('input',e=>{const t=e.target;
+    if(t.classList&&t.classList.contains('telm')){const old=t.value,pos=t.selectionStart,f=telMask(old);
+      if(f!==old){t.value=f;if(pos!=null&&pos<old.length){const before=old.slice(0,pos).replace(/\D/g,'').length;let c=0,i=0;for(;i<f.length&&c<before;i++){if(/\d/.test(f[i]))c++;}try{t.setSelectionRange(i,i);}catch(x){}}}
+      const g=t.parentNode.querySelector('.ghost');if(g)g.innerHTML=telGhost(t.value);t.classList.toggle('tel-eksik',telEksik(t.value));}
+    if(t.dataset&&setVal(t)&&ctx.onInput)ctx.onInput(t.dataset.p,t);});
   el.addEventListener('change',e=>{const t=e.target;if(t.dataset&&setVal(t)&&ctx.onChange)ctx.onChange(t.dataset.p,t);});
   el.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a||!el.contains(a))return;if(ctx.act)ctx.act(a.dataset.act,a.dataset,a,e);});
 }
-function fInp(ctx,p,lab,o={}){const v=pget(ctx.root,p);return '<label class="fld"><span>'+lab+'</span><input data-p="'+p+'" type="'+(o.type||'text')+'" value="'+esc(v)+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+(o.list?' list="'+o.list+'"':'')+(o.up?' autocapitalize="words"':'')+(o.num?' data-num="1" inputmode="numeric"':'')+(o.ro?' readonly':'')+'></label>';}
+function fInp(ctx,p,lab,o={}){const v=pget(ctx.root,p);
+  if(o.type==='tel')return '<label class="fld"><span>'+lab+'</span><div class="telwrap"><span class="ghost" aria-hidden="true">'+telGhost(v)+'</span><input class="telm'+(telEksik(v)?' tel-eksik':'')+'" data-p="'+p+'" type="tel" inputmode="numeric" autocomplete="off" maxlength="14" value="'+esc(v)+'"></div></label>';
+  return '<label class="fld"><span>'+lab+'</span><input data-p="'+p+'" type="'+(o.type||'text')+'" value="'+esc(v)+'"'+(o.ph?' placeholder="'+esc(o.ph)+'"':'')+(o.list?' list="'+o.list+'"':'')+(o.up?' autocapitalize="words"':'')+(o.num?' data-num="1" inputmode="numeric"':'')+(o.ro?' readonly':'')+'></label>';}
 function fSel(ctx,p,lab,opts,o={}){const v=pget(ctx.root,p);return '<label class="fld"><span>'+lab+'</span><select data-p="'+p+'">'+(o.blank?'<option value="">Seçin…</option>':'')+opts.map(x=>'<option value="'+esc(x.k)+'"'+(x.k===v?' selected':'')+'>'+esc(x.l)+'</option>').join('')+'</select></label>';}
 
 /* ================= İLÇE / MAHALLE ================= */
-const ilceler=()=>S.ilceMahalle.map(x=>x.ilce);
-const mahalleler=ilce=>{const x=S.ilceMahalle.find(i=>i.ilce===ilce);return x?x.mahalleler:[];};
+const listeAktif=()=>S.ilceMahalle.length?S.ilceMahalle:ILCE_GOMULU;
+const ilceler=()=>listeAktif().map(x=>x.ilce);
+const mahalleler=ilce=>{const x=listeAktif().find(i=>i.ilce===ilce);return x?x.mahalleler:[];};
 const mahOpts=ilce=>mahalleler(ilce).map(m=>'<option value="'+esc(m)+'">').join('');
 
 /* ================= BİNA ALANLARI (form + bina düzenleme ortak) ================= */
@@ -280,7 +336,7 @@ function binaFields(ctx){
    '<div class="pinrow" id="pinrow">'+pinTxt(b)+'<button type="button" class="btn sm sec" data-act="buradayim">📍 Buradayım</button><button type="button" class="btn sm sec" data-act="haritadan">🗺 Haritadan seç</button></div>';
 }
 function yoneticiFields(ctx){
-  return '<div class="row">'+fInp(ctx,'b.yonetici.ad','Yönetici adı',{up:1})+fInp(ctx,'b.yonetici.tel','Yönetici telefonu',{type:'tel'})+'</div>'+
+  return '<div class="row">'+fInp(ctx,'b.yonetici.ad','Yönetici adı',{up:1})+fInp(ctx,'b.yonetici.tel','Yönetici telefonu',{type:'tel',ph:'+90(5xx) xxx xx xx'})+'</div><div class="aramasatir"><button type="button" class="aramabtn" data-ara="b.yonetici.tel" style="border:0;margin:0">📞 Yöneticiyi ara</button></div>'+
    fSel(ctx,'b.yonetici.izin','İletişim izni (kampanya/bilgilendirme)',IZIN)+
    '<div class="row">'+fInp(ctx,'b.daireSayisi','Daire sayısı',{type:'number',num:1})+fSel(ctx,'b.altyapi','Altyapı durumu',ALTYAPI)+'</div>'+
    '<label class="fld" style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-p="b.bilgilendirme" style="width:auto"'+(ctx.root.b.bilgilendirme?' checked':'')+'><span style="margin:0;font-size:14px;color:#1c2733">Bina bilgilendirmesi yapıldı</span></label>';
@@ -344,10 +400,12 @@ function yeniTaslak(bina){
   return {z,b,edit:false,tmp:{},gpsDurum:'bekliyor'};
 }
 function gerekliKurulum(){if(!S.ayar.adSoyad||!S.ayar.kod){kurulumSheet();return true;}return false;}
+function hizliAc(){if(gerekliKurulum())return;D=yeniTaslak();D.hizli=true;D.tmp={};formSheet();baslangicKonum();}
 function formAc(devam,bina){
   if(gerekliKurulum())return;
   if(devam&&S.taslak){D={z:clone(S.taslak.z),b:clone(S.taslak.b),edit:false,tmp:{},gpsDurum:S.taslak.z.baslangic.lat!=null?'ok':'bekliyor'};}
   else D=yeniTaslak(bina);
+  if(devam&&S.taslak&&S.taslak.hizli)D.hizli=true;
   D.tmp={};
   formSheet();
   if(!D.z.baslangic.lat)baslangicKonum();
@@ -365,7 +423,7 @@ function yakinBinaGoster(){
   el.innerHTML=(best&&bm<=YAKIN_BINA_M)?'<div class="yakin"><span>📌 Yakında kayıtlı bina: <b>'+esc(best.ad)+'</b> ('+bm+' m)</span><button class="btn sm" data-act="binaSec" data-id="'+best.id+'">Bu bina</button></div>':'';
 }
 let tkT=null;
-function taslakKaydet(){if(!D||D.edit)return;clearTimeout(tkT);tkT=setTimeout(()=>{if(!D||D.edit)return;S.taslak={z:clone(D.z),b:clone(D.b),edit:false,ts:Date.now()};save();},500);}
+function taslakKaydet(){if(!D||D.edit)return;clearTimeout(tkT);tkT=setTimeout(()=>{if(!D||D.edit)return;S.taslak={z:clone(D.z),b:clone(D.b),edit:false,hizli:!!D.hizli,ts:Date.now()};save();},500);}
 function musteriHtml(ctx,m,i){
   const P='z.musteriler.'+i+'.';
   const sonuc=SONUCLAR.map(s=>'<button type="button" class="chip'+(m.sonuc===s.k?' on':'')+'" data-act="sonuc" data-i="'+i+'" data-v="'+s.k+'">'+s.l+'</button>').join('');
@@ -373,7 +431,7 @@ function musteriHtml(ctx,m,i){
   const tah=[['var','Taahhüt var'],['yok','Taahhüt yok'],['bilmiyor','Bilmiyor']].map(x=>'<button type="button" class="chip'+(m.taahhut===x[0]?' on':'')+'" data-act="taahhut" data-i="'+i+'" data-v="'+x[0]+'">'+x[1]+'</button>').join('');
   const rakip=m.mevcutOperator&&m.mevcutOperator!=='tt'&&m.mevcutOperator!=='bilmiyor'&&m.taahhut==='var';
   return '<div class="musteri"><div class="mh"><span>Müşteri '+(i+1)+'</span>'+(ctx.root.z.musteriler.length>1?'<button type="button" class="x" data-act="musteriSil" data-i="'+i+'">Kaldır</button>':'')+'</div>'+
-   '<div class="row">'+fInp(ctx,P+'ad','Müşteri adı',{up:1})+fInp(ctx,P+'tel','Telefon (isteğe bağlı)',{type:'tel'})+'</div>'+
+   '<div class="row">'+fInp(ctx,P+'ad','Müşteri adı',{up:1})+fInp(ctx,P+'tel','Telefon (isteğe bağlı)',{type:'tel',ph:'+90(5xx) xxx xx xx'})+'</div><div class="aramasatir"><button type="button" class="aramabtn" data-ara="'+P+'tel" style="border:0;margin:0">📞 Ara</button></div>'+
    '<div class="lab">Sonuç</div><div class="chips">'+sonuc+'</div>'+
    '<div class="lab">Ürünler (dokun: ekle/çıkar, + − adet)</div><div class="chips">'+urun+'</div>'+
    fSel(ctx,P+'mevcutOperator','Mevcut operatör',OPERATORLER,{blank:1})+
@@ -385,18 +443,18 @@ function musteriHtml(ctx,m,i){
 function formHtml(ctx){
   const {z,b}=D;
   const elle=z.saatElle;
-  return '<div class="fh"><b>'+(D.edit?'Ziyareti Düzenle':'Yeni Ziyaret')+'</b><button class="x" data-act="kapat">✕</button></div><div class="fb">'+
+  return '<div class="fh"><b>'+(D.hizli?'Hızlı Pin':D.tamamla?'Ziyareti Tamamla':D.edit?'Ziyareti Düzenle':'Yeni Ziyaret')+'</b><button class="x" data-act="kapat">✕</button></div><div class="fb">'+
   '<div class="card"><h3>Zaman ve konum</h3><div class="kv"><span>Başlangıç</span><span>'+fDate2(z.baslangic.zaman)+'</span></div><div class="kv"><span>Konum</span><span id="gpsDurum">'+gpsHtml()+'</span></div>'+
-  (D.edit?'':'<label class="fld" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-p="z.saatElle" style="width:auto"'+(elle?' checked':'')+'><span style="margin:0;font-size:14px;color:#1c2733">Sonradan giriyorum (saati ben gireceğim)</span></label>'+
+  (D.edit||D.hizli?'':'<label class="fld" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-p="z.saatElle" style="width:auto"'+(elle?' checked':'')+'><span style="margin:0;font-size:14px;color:#1c2733">Sonradan giriyorum (saati ben gireceğim)</span></label>'+
   (elle?fInp(ctx,'tmp.baslangicLocal','Ziyaret tarihi ve saati',{type:'datetime-local'})+'<div class="info">Sonradan girilen kayıtlar yönetici tarafında "geç kayıt" olarak görünür.</div>':''))+'</div>'+
   '<div class="card"><h3>Bina</h3><div id="yakin"></div><button type="button" class="btn sec sm" style="margin-bottom:9px" data-act="binaListe">📂 Kayıtlı bina seç</button>'+
   binaFields(ctx)+fInp(ctx,'z.giris','Giriş / Blok (isteğe bağlı)',{up:1,ph:'Örn. A Blok'})+
-  '<details'+(b.yonetici&&(b.yonetici.ad||b.yonetici.tel)?' open':'')+'><summary style="font-size:14px;color:var(--navy);font-weight:600;margin-bottom:8px">Bina ve yönetici bilgileri</summary>'+yoneticiFields(ctx)+'</details></div>'+
-  '<div class="card"><h3>Müşteriler</h3>'+z.musteriler.map((m,i)=>musteriHtml(ctx,m,i)).join('')+'<button type="button" class="btn sec" data-act="musteriEkle">＋ Müşteri ekle</button><div class="info">Aynı girişteki müşteriler tek kartta alt alta yazılır.</div></div>'+
+  (D.hizli?'':'<details'+(b.yonetici&&(b.yonetici.ad||b.yonetici.tel)?' open':'')+'><summary style="font-size:14px;color:var(--navy);font-weight:600;margin-bottom:8px">Bina ve yönetici bilgileri</summary>'+yoneticiFields(ctx)+'</details>')+'</div>'+
+  (D.hizli?'<div class="info">Hızlı Pin: konum, saat ve bina adı kaydedilir. Müşteri ve sonucu daha sonra <b>Bugün → Bekleyen kayıt</b> üzerinden tamamlayın; kart o zaman oluşur. 24 saatten uzun bekleyenler uyarı alır.</div>':'<div class="card"><h3>Müşteriler</h3>'+z.musteriler.map((m,i)=>musteriHtml(ctx,m,i)).join('')+'<button type="button" class="btn sec" data-act="musteriEkle">＋ Müşteri ekle</button><div class="info">Aynı girişteki müşteriler tek kartta alt alta yazılır.</div></div>'+
   '<div class="card"><h3>Ziyaret Sonuç / Aksiyon</h3><label class="fld"><span>Metin (otomatik hazırlanır, istersen düzenle)</span><textarea id="sonucTxt" data-p="z.sonucMetni">'+esc(z.sonucMetni)+'</textarea></label>'+
   (z.sonucElle?'<button type="button" class="btn sec sm" data-act="otomatik">↺ Otomatik metne dön</button>':'<label class="fld" style="margin-top:8px"><span>Ek bilgi (metnin altına eklenir)</span><textarea data-p="z.ekNot" style="min-height:56px">'+esc(z.ekNot)+'</textarea></label>')+'</div>'+
-  '<div class="card"><h3>WhatsApp kartı önizleme</h3><pre class="kart" id="kartOnizleme"></pre></div></div>'+
-  '<div class="fbar"><button class="btn ok" data-act="kaydet" id="kaydetBtn">'+(D.edit?'Değişiklikleri kaydet':'Kaydet')+'</button></div>';
+  '<div class="card"><h3>WhatsApp kartı önizleme</h3><pre class="kart" id="kartOnizleme"></pre></div>')+'</div>'+
+  '<div class="fbar"><button class="btn ok" data-act="kaydet" id="kaydetBtn">'+(D.hizli?'📍 Bekleyen olarak kaydet':D.tamamla?'Tamamla ve kartı oluştur':D.edit?'Değişiklikleri kaydet':'Kaydet')+'</button></div>';
 }
 function fDate2(iso){return fmtDate(iso)+' '+fmtTime(iso);}
 function sonucYenile(){
@@ -451,12 +509,15 @@ function rerenderForm(first){
 function sonucMetniHazirla(){if(!D.z.sonucElle)D.z.sonucMetni=sonucMetniUret(D.z);}
 function dogrula(){
   const e=[];const {z,b}=D;
+  if(D.hizli){if(!(b.ad||'').trim())e.push('Bina adı gerekli');if(!b.pin)e.push('Bina pini işaretlenmeli (Buradayım veya Haritadan seç)');return e;}
   if(!(b.ad||'').trim())e.push('Bina adı gerekli');
   if(!(b.ilce||'').trim())e.push('İlçe gerekli');
   if(!D.edit&&!b.pin)e.push('Bina pini işaretlenmeli (Buradayım veya Haritadan seç)');
   const ms=z.musteriler.filter(m=>m.ad.trim()||m.sonuc||m.urunler.length||m.tel.trim());
   if(!ms.length)e.push('En az bir müşteri satırı doldurun (sonuç seçin)');
   ms.forEach((m,i)=>{const n='Müşteri '+(i+1)+': ';if(!m.sonuc)e.push(n+'sonuç seçin');else if(['satis','on_talep','teklif'].includes(m.sonuc)&&!m.urunler.length)e.push(n+'ürün seçin');});
+  ms.forEach((m,i)=>{if(telEksik(m.tel))e.push('Müşteri '+(i+1)+': telefon eksik ('+telRakam(m.tel)+'/11 hane) — tamamlayın ya da boş bırakın');});
+  if(b.yonetici&&telEksik(b.yonetici.tel))e.push('Yönetici telefonu eksik ('+telRakam(b.yonetici.tel)+'/11 hane) — tamamlayın ya da boş bırakın');
   if(z.saatElle&&!D.edit){const t=new Date(z.baslangic.zaman);if(isNaN(t)||t>new Date(Date.now()+60000))e.push('Ziyaret saati gelecekte olamaz');}
   return e;
 }
@@ -467,6 +528,8 @@ async function kaydet(){
   const btn=$('#kaydetBtn');if(btn){btn.disabled=true;btn.textContent='Konum alınıyor…';}
   const z=D.z,b=D.b,now=new Date().toISOString();
   z.musteriler=z.musteriler.filter(m=>m.ad.trim()||m.sonuc||m.urunler.length||m.tel.trim());
+  if(D.hizli){z.musteriler=[];z.durum='bekliyor';z.bekleyenZaman=now;}
+  z.musteriler.forEach(m=>{m.tel=telFmt(m.tel);});if(D.b&&D.b.yonetici)D.b.yonetici.tel=telFmt(D.b.yonetici.tel);
   if(!z.sonucElle)z.sonucMetni=sonucMetniUret(z);
   b.guncelleme=now;delete b.yeni;
   if(!D.edit){
@@ -483,13 +546,14 @@ async function kaydet(){
   }else{
     z.surumler=z.surumler||[];z.surumler.push({surum:z.surum,zaman:z.duzenleme||z.olusturma,musteriler:D.orijinal});
     z.surum++;z.duzenleme=now;
+    if(D.tamamla){z.durum=null;z.tamamlama=now;z.tamamSurum=z.surum;}
   }
   const bi=S.binalar.findIndex(x=>x.id===b.id);if(bi>=0)S.binalar[bi]=b;else S.binalar.push(b);
   S.ayar.sonIlce=b.ilce;S.ayar.sonMahalle=b.mahalle;
   const zi=S.ziyaretler.findIndex(x=>x.id===z.id);if(zi>=0)S.ziyaretler[zi]=z;else S.ziyaretler.push(z);
   S.taslak=null;clearTimeout(tkT);
   const ok=await save();
-  const edit=D.edit;const sh=formSh;D=null;if(sh)closeSheet(sh);
+  const edit=D.edit&&!D.tamamla;const sh=formSh;D=null;if(sh)closeSheet(sh);
   render();
   if(ok)sonucSheet(z,b,edit);
 }
@@ -500,6 +564,10 @@ function mesafeMesaji(z){
   return '<div class="warnbox">⚠ Kayıt konumunuz binadan yaklaşık '+(z.mesafe.m>=1000?(z.mesafe.m/1000).toFixed(1)+' km':z.mesafe.m+' m')+' uzakta ('+BANT[bn]+'). Bu bilgi yönetici tarafında görünür.</div>';
 }
 function sonucSheet(z,b,edit){
+  if(z.durum==='bekliyor'){
+    const sh0=openSheet('<h3 style="margin:0 0 8px;color:var(--navy)">Bekleyen kayıt oluşturuldu</h3>'+mesafeMesaji(z)+'<div class="info">Müşteri ve sonucu <b>24 saat içinde</b> Bugün → Bekleyen kayıt üzerinden tamamlayın. Kart o zaman oluşur.</div><button class="btn" data-act="tamam">Tamam</button>');
+    attachBinder(sh0.sheet,{root:{},act:()=>closeSheet(sh0)});return;
+  }
   const kart=kartMetni(z,b);
   const sh=openSheet('<h3 style="margin:0 0 8px;color:var(--navy)">'+(edit?'Değişiklik kaydedildi':'Ziyaret kaydedildi')+'</h3>'+(edit?'':mesafeMesaji(z))+'<pre class="kart">'+esc(kart)+'</pre><div class="row" style="margin-bottom:8px"><button class="btn ok" data-act="wa">WhatsApp</button><button class="btn sec" data-act="kopya">Kartı kopyala</button></div><button class="btn gray" data-act="tamam">Tamam</button>');
   attachBinder(sh.sheet,{root:{},act:(a)=>{if(a==='wa')window.open('https://wa.me/?text='+encodeURIComponent(kart),'_blank');if(a==='kopya')kopyala(kart);if(a==='tamam')closeSheet(sh);}});
@@ -520,37 +588,41 @@ function kurulumSheet(){
 
 /* ================= ZİYARET DETAY / DÜZENLE / İPTAL ================= */
 function binaOf(z){return S.binalar.find(b=>b.id===z.binaId)||{ad:'(bina yok)',ilce:'',mahalle:''};}
+function bekleyenSaat(z){return Math.max(0,Math.floor((Date.now()-new Date(z.olusturma||z.baslangic.zaman).getTime())/3600000));}
 function rozetler(z){
   let h='';const bn=z.mesafe?z.mesafe.bant:'yok';h+='<span class="rz b-'+bn+'">'+BANT[bn]+(z.mesafe&&z.mesafe.m!=null&&bn!=='yok'?' · '+(z.mesafe.m>=1000?(z.mesafe.m/1000).toFixed(1)+' km':z.mesafe.m+' m'):'')+'</span>';
   if(z.saatElle)h+='<span class="rz gec">Geç kayıt '+sureTxt(z.gecKayitDk)+'</span>';
   if(z.mesafe&&z.mesafe.pinDegisti)h+='<span class="rz gec">Pin güncellendi</span>';
-  if(z.surum>1&&!z.iptal)h+='<span class="rz duz">Düzenlendi</span>';
+  if(z.durum==='bekliyor'){const sa=bekleyenSaat(z);h+='<span class="rz '+(sa>=24?'ipt':'gec')+'">⏳ Bekliyor'+(sa>=24?' · '+sa+' sa':'')+'</span>';}
+  if(z.surum>(z.tamamSurum||1)&&!z.iptal)h+='<span class="rz duz">Düzenlendi</span>';
   if(z.iptal)h+='<span class="rz ipt">İptal</span>';
   return h;
 }
 function ziyaretKart(z){
   const b=binaOf(z);const isim=z.musteriler.map(m=>m.ad).filter(Boolean).join(', ')||'—';
-  return '<div class="vi'+(z.iptal?' ipt':'')+'" data-act="detay" data-id="'+z.id+'"><div class="h"><span>'+fmtTime(z.baslangic.zaman)+'</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / '))+'</span></div><div class="t">'+esc(b.ad)+(z.giris?' ('+esc(z.giris)+')':'')+'</div><div class="s">'+esc(isim)+' — '+esc((z.sonucMetni||sonucMetniUret(z)).split('\n')[0])+'</div>'+rozetler(z)+'</div>';
+  return '<div class="vi'+(z.iptal?' ipt':'')+'" data-act="detay" data-id="'+z.id+'"><div class="h"><span>'+fmtTime(z.baslangic.zaman)+'</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / '))+'</span></div><div class="t">'+esc(b.ad)+(z.giris?' ('+esc(z.giris)+')':'')+'</div><div class="s">'+(z.durum==='bekliyor'?'Müşteri ve sonuç girilmedi — tamamlanacak':esc(isim)+' — '+esc((z.sonucMetni||sonucMetniUret(z)).split('\n')[0]))+'</div>'+rozetler(z)+'</div>';
 }
 function detaySheet(id){
   const z=S.ziyaretler.find(x=>x.id===id);if(!z)return;const b=binaOf(z);
   const kart=kartMetni(z,b);
   let h='<h3 style="margin:0 0 4px;color:var(--navy)">'+esc(b.ad)+'</h3><div class="info">'+fDate2(z.baslangic.zaman)+(z.sureDk!=null?' · süre '+sureTxt(z.sureDk):'')+(z.surum>1?' · sürüm '+z.surum:'')+'</div>'+rozetler(z)+
-   '<pre class="kart">'+esc(kart)+'</pre>';
+   (z.durum==='bekliyor'?'<div class="'+(bekleyenSaat(z)>=24?'warnbox':'info')+'">⏳ Bu kayıt bekliyor ('+bekleyenSaat(z)+' saattir). Müşteri ve sonuç girilmeden kart oluşmaz.</div>':'<pre class="kart">'+esc(kart)+'</pre>');
   if(z.iptal)h+='<div class="warnbox">İptal edildi ('+esc(z.iptal.neden)+', '+fDate2(z.iptal.zaman)+'). Kartlarda ve istatistiklerde sayılmaz.</div><button class="btn sec" data-act="geriAl">İptali geri al</button>';
+  else if(z.durum==='bekliyor')h+='<button class="btn" style="margin-bottom:8px" data-act="tamamla">✅ Tamamla (müşteri ve sonuç gir)</button><button class="btn bad" data-act="iptal">İptal et</button>';
   else h+='<div class="row" style="margin-bottom:8px"><button class="btn ok" data-act="wa">WhatsApp</button><button class="btn sec" data-act="kopya">Kartı kopyala</button></div><div class="row"><button class="btn sec" data-act="duzenle">Düzenle</button><button class="btn bad" data-act="iptal">İptal et</button></div>';
   const sh=openSheet(h);
   attachBinder(sh.sheet,{root:{},act:(a)=>{
     if(a==='wa')window.open('https://wa.me/?text='+encodeURIComponent(kart),'_blank');
     if(a==='kopya')kopyala(kart);
-    if(a==='duzenle'){closeSheet(sh);duzenleAc(z.id);}
+    if(a==='duzenle'||a==='tamamla'){closeSheet(sh);duzenleAc(z.id);}
     if(a==='iptal'){closeSheet(sh);iptalSheet(z.id);}
     if(a==='geriAl'){const n=new Date().toISOString();z.surumler=z.surumler||[];z.surumler.push({surum:z.surum,zaman:z.duzenleme||z.olusturma,musteriler:ozet(z),iptalGeriAlindi:true});z.iptal=null;z.surum++;z.duzenleme=n;save().then(()=>{closeSheet(sh);render();toast('İptal geri alındı');});}
   }});
 }
 function duzenleAc(id){
   const z=S.ziyaretler.find(x=>x.id===id);if(!z)return;const b=S.binalar.find(x=>x.id===z.binaId);if(!b)return;
-  D={z:clone(z),b:clone(b),edit:true,tmp:{},gpsDurum:'ok',orijinal:ozet(z)};
+  D={z:clone(z),b:clone(b),edit:true,tamamla:z.durum==='bekliyor',tmp:{},gpsDurum:'ok',orijinal:ozet(z)};
+  if(D.tamamla&&!D.z.musteriler.length)D.z.musteriler.push(yeniMusteri());
   formSheet();
 }
 function iptalSheet(id){
@@ -573,7 +645,25 @@ function paketOlustur(){
     kullanici:{kod:S.ayar.kod,adSoyad:S.ayar.adSoyad},karistirma:{yontem:'kvkk-xor-b64',onek:'~K~',uyumlu:'PY/Panel kvkkEncode/kvkkDecode',alanlar:['musteriler[].ad','musteriler[].tel','musteriler[].not','ekNot','sonucMetni','yonetici.ad','yonetici.tel']},
     binalar:bs.map(b=>binaMap(b,enc)),ziyaretler:zs.map(z=>ziyaretMap(z,enc))};
 }
-function gununKartlari(day){return S.ziyaretler.filter(z=>!z.iptal&&dayKey(z.baslangic.zaman)===day).sort((a,b)=>new Date(a.baslangic.zaman)-new Date(b.baslangic.zaman)).map(z=>kartMetni(z,binaOf(z)));}
+function topluMetin(kartlar,adSoyad,gun){
+  if(!kartlar.length)return '';
+  return '📅 GÜN SONU ÖZETİ – '+fmtDate(gun)+'\n👤 '+(adSoyad||'')+' · '+kartlar.length+' ziyaret\n\n'+kartlar.join('\n\n');
+}
+function kartlarSheet(){
+  const k=gununKartlari(dayKey(new Date()));
+  if(!k.length){toast('Bugün kart yok');return;}
+  const metin=topluMetin(k,S.ayar.adSoyad,new Date());
+  const sh=openSheet('<h3 style="margin:0 0 6px;color:var(--navy)">Günün kartları</h3><div class="info">'+k.length+' ziyaret · her ziyaret kendi saat bilgisiyle ayrı kartta, saat sırasıyla. Bekleyen ve iptal edilen kayıtlar dahil değildir.</div><pre class="kart" style="max-height:46vh;overflow:auto">'+esc(metin)+'</pre><button class="btn ok" style="margin-bottom:8px" data-act="paylas">📤 WhatsApp\'ta paylaş</button><button class="btn sec" style="margin-bottom:8px" data-act="kopya">Tümünü kopyala</button><button class="btn gray" data-act="kapat">Kapat</button>');
+  attachBinder(sh.sheet,{root:{},act:async a=>{
+    if(a==='kapat')closeSheet(sh);
+    if(a==='kopya')kopyala(metin);
+    if(a==='paylas'){
+      if(navigator.share){try{await navigator.share({text:metin});}catch(e){if(e.name!=='AbortError'){await kopyala(metin);toast('Paylaşılamadı, metin kopyalandı');}}}
+      else{await kopyala(metin);window.open('https://wa.me/','_blank');}
+    }
+  }});
+}
+function gununKartlari(day){return S.ziyaretler.filter(z=>!z.iptal&&!z.durum&&dayKey(z.baslangic.zaman)===day).sort((a,b)=>new Date(a.baslangic.zaman)-new Date(b.baslangic.zaman)).map(z=>kartMetni(z,binaOf(z)));}
 function pad2(d){return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(d.getHours())+pad(d.getMinutes());}
 function gonderSheet(){
   if(gerekliKurulum())return;
@@ -584,19 +674,32 @@ function gonderSheet(){
   const dosya='d2d-'+(slug(S.ayar.kod)||'kullanici')+'-'+pad2(new Date())+'.json';
   const json=JSON.stringify(paket);
   const sh=openSheet('<h3 style="margin:0 0 8px;color:var(--navy)">Günü Kapat / Gönder</h3><div class="kv"><span>Pakete girecek kayıt</span><b>'+paket.ziyaretler.length+'</b></div><div class="kv"><span>Bugünkü kart</span><b>'+kartlar.length+'</b></div><div class="kv"><span>Dosya</span><span style="font-size:12px">'+esc(dosya)+'</span></div>'+
-   '<div class="info" style="margin-top:8px">Paylaş\'a basınca mail uygulamanızı seçin; alıcı olarak yönetici ve ekip liderini ekleyin. Müşteri bilgileri dosyada karıştırılmış gider.</div>'+
+   (S.ziyaretler.some(z=>z.durum==='bekliyor'&&!z.iptal)?'<div class="warnbox" style="margin-top:8px">⏳ '+S.ziyaretler.filter(z=>z.durum==='bekliyor'&&!z.iptal).length+' bekleyen kayıt var (müşteri/sonuç girilmemiş). Pakete "bekliyor" olarak girer, kart üretilmez.</div>':'')+'<div class="info" style="margin-top:8px">Paylaş\'a basınca mail uygulamanızı seçin; alıcı olarak yönetici ve ekip liderini ekleyin. Müşteri bilgileri dosyada karıştırılmış gider.</div>'+
    (S.ayar.alicilar?'<button class="btn sec" style="margin-bottom:8px" data-act="alici">Alıcıları kopyala</button>':'')+
-   '<button class="btn ok" style="margin-bottom:8px" data-act="paylas">📤 Paylaş (mail)</button><button class="btn sec" style="margin-bottom:8px" data-act="indir">Sadece dosyayı indir</button><button class="btn gray" data-act="kapat">Kapat</button>');
+   '<div class="info" id="paylasDurum" style="margin-top:4px">Dosyalı paylaşım denetleniyor…</div>'+
+   '<button class="btn ok" style="margin-bottom:8px" data-act="paylas">📤 Paylaş (dosya ekli)</button><button class="btn sec" style="margin-bottom:8px" data-act="mailac">✉️ Mail aç (alıcı/konu hazır, dosya iner)</button><button class="btn sec" style="margin-bottom:8px" data-act="indir">Sadece dosyayı indir</button><button class="btn gray" data-act="kapat">Kapat</button>');
   const isaretle=async()=>{S.ayar.sonGonderim=new Date().toISOString();await save();render();};
+  /* Dosyalı paylaşım için sırayla birkaç dosya türü denenir (bazı telefonlar application/json'u reddeder) */
+  const adayDosyalar=()=>{const tabanAd=dosya.replace(/\.json$/,'');return [new File([json],dosya,{type:'application/json'}),new File([json],dosya,{type:'text/plain'}),new File([json],tabanAd+'.txt',{type:'text/plain'})];};
+  const uygunDosya=()=>{if(!navigator.canShare||!navigator.share)return null;for(const f of adayDosyalar()){try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;};
+  const durum=sh.sheet.querySelector('#paylasDurum');
+  if(durum){const f=uygunDosya();durum.textContent=f?'Bu telefonda dosyalı paylaşım çalışıyor ('+f.name.split('.').pop()+').':'Bu telefonda dosyalı paylaşım yok; "Mail aç" düğmesini kullanın (dosya telefona iner, mailde Ekle ile eklenir).';}
   attachBinder(sh.sheet,{root:{},act:async a=>{
     if(a==='kapat')closeSheet(sh);
     if(a==='alici')kopyala(S.ayar.alicilar);
     if(a==='indir'){indir(dosya,json);await isaretle();toast('Dosya indirildi');}
     if(a==='paylas'){
-      const f=new File([json],dosya,{type:'application/json'});
-      if(navigator.canShare&&navigator.canShare({files:[f]})){
+      const f=uygunDosya();
+      if(f){
         try{await navigator.share({files:[f],title:konu,text:govde});await isaretle();closeSheet(sh);toast('Paylaşıldı');}catch(e){if(e.name!=='AbortError')toast('Paylaşılamadı: '+e.message);}
-      }else{indir(dosya,json);await kopyala(govde);await isaretle();toast('Dosya indirildi, metin kopyalandı');}
+      }else{indir(dosya,json);await kopyala(govde);await isaretle();toast('Dosyalı paylaşım yok: dosya indirildi, metin kopyalandı');}
+    }
+    if(a==='mailac'){
+      indir(dosya,json);await isaretle();
+      const al=(S.ayar.alicilar||'').split(/[;,\s]+/).filter(x=>x.includes('@')).join(',');
+      const g2=govde+'\n\n(JSON dosyası: '+dosya+' — telefonun İndirilenler klasöründe; Ekle ile ekleyin)';
+      setTimeout(()=>{location.href='mailto:'+al+'?subject='+encodeURIComponent(konu)+'&body='+encodeURIComponent(g2);},700);
+      toast('Dosya indirildi, mail açılıyor');
     }
   }});
 }
@@ -613,12 +716,14 @@ function viewBugun(){
   const aySat=satisAdetleri(ay);const bek=bekleyenSayi();
   let h='';
   if(S.taslak)h+='<div class="warnbox">Yarım kalan bir ziyaret taslağınız var. <div class="row" style="margin-top:6px"><button class="btn sm" data-act="taslakDevam">Devam et</button><button class="btn sm gray" data-act="taslakSil">Sil</button></div></div>';
-  h+='<div class="tiles"><div class="tile"><b>'+act.length+'</b><span>Ziyaret</span></div><div class="tile"><b>'+mus+'</b><span>Müşteri</span></div><div class="tile"><b>'+sat+'</b><span>Satış adedi</span></div><div class="tile"><b>'+adetToplam(act,'on_talep')+'</b><span>Ön talep</span></div></div>';
-  h+='<button class="btn" style="margin-bottom:8px;padding:15px" data-act="yeni">➕ Yeni Ziyaret</button>';
+  h+='<div class="tiles"><div class="tile"><b>'+act.length+'</b><span>Ziyaret</span></div><div class="tile"><b>'+mus+'</b><span>Müşteri</span></div><div class="tile"><b>'+sat+'</b><span>Satış adedi</span></div><div class="tile"><b>'+adetToplam(act,'on_talep')+'</b><span>Ön talep</span></div><div class="tile"><b>'+donusumSayisi(act)+'</b><span>Dönüşüm</span></div></div>';
+  h+='<div class="row" style="margin-bottom:8px"><button class="btn" style="padding:15px" data-act="yeni">➕ Yeni Ziyaret</button><button class="btn sec" style="padding:15px" data-act="hizli">📍 Hızlı Pin</button></div>';
+  const bk=S.ziyaretler.filter(z=>z.durum==='bekliyor'&&!z.iptal).sort((a,b)=>new Date(a.olusturma||a.baslangic.zaman)-new Date(b.olusturma||b.baslangic.zaman));
+  if(bk.length){const eski=bk.filter(z=>bekleyenSaat(z)>=24).length;h+='<div class="'+(eski?'warnbox':'info')+'"><b>⏳ Bekleyen kayıt: '+bk.length+'</b>'+(eski?' — '+eski+' tanesi 24 saatten fazla bekliyor':'')+'</div>'+bk.map(ziyaretKart).join('');}
   h+='<div class="row" style="margin-bottom:10px"><button class="btn sec" data-act="gonder">📤 Günü Kapat / Gönder'+(bek?' ('+bek+')':'')+'</button><button class="btn sec" data-act="kartlar">📋 Günün kartları</button></div>';
   if(bek)h+='<div class="info">'+bek+' kayıt henüz gönderilmedi'+(S.ayar.sonGonderim?' (son gönderim: '+fDate2(S.ayar.sonGonderim)+')':'')+'.</div>';
-  h+='<div class="card"><h3>Bu ay</h3><div class="kv"><span>Ziyaret</span><b>'+ay.length+'</b></div>'+(Object.keys(aySat).length?Object.entries(aySat).map(([k,v])=>'<div class="kv"><span>Satış — '+esc(k)+'</span><b>'+v+'</b></div>').join(''):'<div class="kv"><span>Satış</span><b>0</b></div>')+'</div>';
-  h+='<div class="day">Bugünün ziyaretleri</div>'+(list.length?list.map(ziyaretKart).join(''):'<div class="empty">Bugün henüz kayıt yok</div>');
+  h+='<div class="card"><h3>Bu ay</h3><div class="kv"><span>Ziyaret</span><b>'+ay.length+'</b></div>'+(Object.keys(aySat).length?Object.entries(aySat).map(([k,v])=>'<div class="kv"><span>Satış — '+esc(k)+'</span><b>'+v+'</b></div>').join(''):'<div class="kv"><span>Satış</span><b>0</b></div>')+'<div class="kv"><span>Dönüşüm (FTTH)</span><b>'+donusumSayisi(ay)+'</b></div></div>';
+  h+='<div class="day">Bugünün ziyaretleri</div>'+(list.filter(z=>z.durum!=='bekliyor').length?list.filter(z=>z.durum!=='bekliyor').map(ziyaretKart).join(''):'<div class="empty">Bugün henüz tamamlanmış kayıt yok</div>');
   return h;
 }
 function viewZiyaretler(){
@@ -651,7 +756,7 @@ function initBinaMap(){
 function binaDetay(id){
   const b=S.binalar.find(x=>x.id===id);if(!b)return;
   const zs=S.ziyaretler.filter(z=>z.binaId===id&&!z.iptal).sort((a,c)=>new Date(c.baslangic.zaman)-new Date(a.baslangic.zaman));
-  const sh=openSheet('<h3 style="margin:0 0 6px;color:var(--navy)">'+esc(b.ad)+'</h3><div class="kv"><span>İlçe / Mahalle</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / ')||'—')+'</span></div><div class="kv"><span>Yönetici</span><span>'+esc(b.yonetici.ad||'—')+'</span></div><div class="kv"><span>Telefon</span><span>'+(b.yonetici.tel?'<a class="tel" href="tel:'+esc(b.yonetici.tel)+'">'+esc(b.yonetici.tel)+'</a>':'—')+'</span></div><div class="kv"><span>İletişim izni</span><span>'+esc(label(IZIN,b.yonetici.izin))+'</span></div><div class="kv"><span>Daire sayısı</span><span>'+esc(b.daireSayisi||'—')+'</span></div><div class="kv"><span>Altyapı</span><span>'+esc(label(ALTYAPI,b.altyapi))+'</span></div><div class="kv"><span>Bilgilendirme</span><span>'+(b.bilgilendirme?'Yapıldı':'Yapılmadı')+'</span></div><div class="kv"><span>Ziyaret ('+SAKLAMA_GUN+' gün)</span><span>'+zs.length+(zs.length?' · son '+fmtDate(zs[0].baslangic.zaman):'')+'</span></div>'+
+  const sh=openSheet('<h3 style="margin:0 0 6px;color:var(--navy)">'+esc(b.ad)+'</h3><div class="kv"><span>İlçe / Mahalle</span><span>'+esc([b.ilce,b.mahalle].filter(Boolean).join(' / ')||'—')+'</span></div><div class="kv"><span>Yönetici</span><span>'+esc(b.yonetici.ad||'—')+'</span></div><div class="kv"><span>Telefon</span><span>'+(b.yonetici.tel?'<a class="tel" href="'+esc(telHref(b.yonetici.tel))+'">'+esc(telFmt(b.yonetici.tel))+'</a> <a class="aramabtn" href="'+esc(telHref(b.yonetici.tel))+'">📞 Ara</a>':'—')+'</span></div><div class="kv"><span>İletişim izni</span><span>'+esc(label(IZIN,b.yonetici.izin))+'</span></div><div class="kv"><span>Daire sayısı</span><span>'+esc(b.daireSayisi||'—')+'</span></div><div class="kv"><span>Altyapı</span><span>'+esc(label(ALTYAPI,b.altyapi))+'</span></div><div class="kv"><span>Bilgilendirme</span><span>'+(b.bilgilendirme?'Yapıldı':'Yapılmadı')+'</span></div><div class="kv"><span>Ziyaret ('+SAKLAMA_GUN+' gün)</span><span>'+zs.length+(zs.length?' · son '+fmtDate(zs[0].baslangic.zaman):'')+'</span></div>'+
    '<div class="row" style="margin-top:10px"><button class="btn" data-act="yeniz">Yeni ziyaret</button><button class="btn sec" data-act="duz">Düzenle</button></div>');
   attachBinder(sh.sheet,{root:{},act:a=>{if(a==='yeniz'){closeSheet(sh);formAc(false,b);}if(a==='duz'){closeSheet(sh);binaDuzenle(id);}}});
 }
@@ -670,9 +775,9 @@ function binaDuzenle(id){
 }
 function viewAyar(){
   const n=S.ziyaretler.length,ctx={root:S};
-  let h='<div class="card"><h3>Kullanıcı</h3>'+fInp({root:S},'ayar.adSoyad','Ad Soyad',{up:1})+fInp({root:S},'ayar.kod','Kullanıcı kodu (PY/Kadro ile aynı)')+'<label class="fld"><span>Mail alıcıları (yönetici, ekip lideri — kopyalamak için not)</span><textarea data-p="ayar.alicilar" placeholder="ad.soyad@... ; ad.soyad@..."></textarea></label></div>';
+  let h='<div class="card"><h3>Kullanıcı</h3>'+fInp({root:S},'ayar.adSoyad','Ad Soyad',{up:1})+fInp({root:S},'ayar.kod','Kullanıcı kodu (PY/Kadro ile aynı)')+'<label class="fld"><span>Mail alıcıları (varsayılan: D2D mail grubu — "Mail aç" ile otomatik dolar; birden çoksa ; ile ayırın)</span><textarea data-p="ayar.alicilar" placeholder="ad.soyad@... ; ad.soyad@..."></textarea></label></div>';
   h+='<div class="card"><h3>Veri ve yedek</h3><div class="kv"><span>Telefondaki ziyaret</span><b>'+n+'</b></div><div class="kv"><span>Kayıtlı bina</span><b>'+S.binalar.length+'</b></div><div class="kv"><span>Saklama süresi</span><b>'+SAKLAMA_GUN+' gün</b></div><div class="kv"><span>Kalıcı depolama</span><b id="persistDurum">…</b></div><div class="row" style="margin-top:10px"><button class="btn sec" data-act="yedekAl">Yedek Al</button><button class="btn sec" data-act="yedekYukle">Yedekten Yükle</button></div><button class="btn bad sm" style="margin-top:10px" data-act="testTemizle">Test verilerini temizle</button><input type="file" id="yedekFile" accept=".json,application/json" style="display:none"></div>';
-  h+='<div class="card"><h3>İlçe / Mahalle listesi</h3><div class="kv"><span>Yüklü</span><b>'+S.ilceMahalle.length+' ilçe, '+S.ilceMahalle.reduce((a,x)=>a+x.mahalleler.length,0)+' mahalle</b></div><div class="info">CSV/metin dosyası: her satırda "İlçe;Mahalle". Excel\'den "CSV (noktalı virgülle ayrılmış)" olarak kaydedin.</div><div class="row"><button class="btn sec" data-act="listeYukle">Dosyadan yükle</button><button class="btn sec" data-act="listeSil">Listeyi temizle</button></div><input type="file" id="listeFile" accept=".csv,.txt,text/csv,text/plain" style="display:none"></div>';
+  h+='<div class="card"><h3>İlçe / Mahalle listesi</h3><div class="kv"><span>Kullanılan</span><b>'+(S.ilceMahalle.length?'Özel liste':'Gömülü liste')+' · '+listeAktif().length+' ilçe, '+listeAktif().reduce((a,x)=>a+x.mahalleler.length,0)+' mahalle</b></div><div class="info">CSV/metin dosyası: her satırda "İlçe;Mahalle". Gömülü liste yeterlidir; yalnızca değiştirmek isterseniz yükleyin. Excel\'den "CSV (noktalı virgülle ayrılmış)" olarak kaydedin.</div><div class="row"><button class="btn sec" data-act="listeYukle">Dosyadan yükle</button><button class="btn sec" data-act="listeSil">Gömülüye dön</button></div><input type="file" id="listeFile" accept=".csv,.txt,text/csv,text/plain" style="display:none"></div>';
   h+='<div class="card"><h3>Hakkında</h3><div class="kv"><span>Sürüm</span><b>v'+APP_VERSION+BUILD_SUFFIX+'</b></div><div class="kv"><span>Tarih</span><b>'+APP_DATE+'</b></div><button class="btn sec" style="margin-top:8px" data-act="surumNotlari">Sürüm notları</button></div>';
   return h;
 }
@@ -700,6 +805,12 @@ async function yedekYukle(file){
     temizlik();await save();render();toast('Yüklendi: '+z.n+' ziyaret, '+b.n+' bina');
   }catch(e){toast('Yedek yüklenemedi: '+e.message,4000);}
 }
+document.addEventListener('click',e=>{
+  const bt=e.target.closest&&e.target.closest('[data-ara]');if(!bt)return;
+  const inp=document.querySelector('input[data-p="'+bt.dataset.ara+'"]');const h=inp?telHref(inp.value):'';
+  if(!h){toast('Telefon numarası yok');return;}
+  location.href=h;
+});
 function olaylar(){
   $('#tabs').addEventListener('click',e=>{const b=e.target.closest('button[data-tab]');if(!b)return;TAB=b.dataset.tab;render();window.scrollTo(0,0);});
   $('#verBtn').textContent='v'+APP_VERSION+BUILD_SUFFIX;$('#verBtn').addEventListener('click',surumSheet);
@@ -715,10 +826,11 @@ function olaylar(){
   });
   app.addEventListener('click',async e=>{const a=e.target.closest('[data-act]');if(!a)return;const act=a.dataset.act,id=a.dataset.id;
     if(act==='yeni')formAc(false);
+    if(act==='hizli')hizliAc();
     if(act==='taslakDevam')formAc(true);
     if(act==='taslakSil'){if(confirm('Taslak silinsin mi?')){S.taslak=null;await save();render();}}
     if(act==='gonder')gonderSheet();
-    if(act==='kartlar'){const k=gununKartlari(dayKey(new Date()));if(!k.length)toast('Bugün kart yok');else kopyala(k.join('\n\n'));}
+    if(act==='kartlar')kartlarSheet();
     if(act==='detay')detaySheet(id);
     if(act==='bv'){binaView=a.dataset.v;render();}
     if(act==='bmapTip'&&binaMap_){setBase(binaMap_,binaMap_._tip==='uydu'?'sokak':'uydu',true);}
@@ -727,7 +839,7 @@ function olaylar(){
     if(act==='yedekYukle')$('#yedekFile').click();
     if(act==='testTemizle'){if(confirm('Bu telefondaki TÜM ziyaret ve bina kayıtları silinecek (kullanıcı bilgisi ve ilçe/mahalle listesi kalır). Önce Yedek Al kullanın. Devam edilsin mi?')){S.ziyaretler=[];S.binalar=[];S.taslak=null;S.ayar.sonGonderim=null;await save();render();toast('Test verileri temizlendi');}}
     if(act==='listeYukle')$('#listeFile').click();
-    if(act==='listeSil'){if(confirm('İlçe/mahalle listesi temizlensin mi?')){S.ilceMahalle=[];await save();render();}}
+    if(act==='listeSil'){if(confirm('Özel liste silinip gömülü listeye dönülsün mü?')){S.ilceMahalle=[];await save();render();}}
     if(act==='surumNotlari')surumSheet();
   });
 }
