@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>D2D Harita</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>html,body,#h{height:100%;margin:0;} #mesaj{position:absolute;z-index:1000;left:60px;top:10px;background:#fff;padding:6px 10px;border-radius:8px;font:12px sans-serif;display:none;}</style>
+</head><body>
+<div id="h"></div><div id="mesaj"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* D2D harita sayfası (v1.0) — Portföy Panel / PY içindeki D2D sekmesi bu sayfayı iframe ile açar ve
+   noktaları postMessage ile gönderir. Veri bu sayfada saklanmaz/gönderilmez; yalnızca çizilir.
+   AŞAĞIDAKİ ANAHTARI D2D Rapor'da kullandığınız Carto anahtarıyla doldurun. */
+const CARTO_KEY = 'cb1_3imn_1_ccd1c9296d4059b57975ebf2';   // CBS/D2D'deki kurumsal anahtar (ytmsaha.github.io alanına kısıtlı)
+const KARO = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png' + (CARTO_KEY ? '?key=' + encodeURIComponent(CARTO_KEY) : '');
+const h = L.map('h').setView([37.0, 35.32], 11);
+let karoKatman = L.tileLayer(KARO, {maxZoom:19, attribution:'© OpenStreetMap, © CARTO'}).addTo(h);
+/* CARTO açılmazsa (anahtar/alan kısıtı, ağ) OpenStreetMap'e otomatik geç — D2D Rapor ile aynı davranış */
+let tileHata = 0;
+karoKatman.on('tileerror', ()=>{ if(++tileHata === 8){ h.removeLayer(karoKatman); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(h); } });
+let katman = L.layerGroup().addTo(h);
+function pinIkon(no, renk){
+  return L.divIcon({className:'', iconSize:[26,26], iconAnchor:[13,13],
+    html:'<div style="width:26px;height:26px;border-radius:50%;background:'+renk+';color:#fff;font:700 12px/26px sans-serif;text-align:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);">'+String(no).replace(/[<>&]/g,'')+'</div>'});
+}
+function ciz(v){
+  katman.clearLayers();
+  const nok = [], yol = [];
+  (v.noktalar || []).forEach(n=>{
+    if(n.tur === 'no'){ nok.push([n.lat,n.lon]); yol.push([n.lat,n.lon]); L.marker([n.lat,n.lon],{icon:pinIkon(n.no,n.renk)}).addTo(katman).bindPopup(n.popup||''); }
+    else if(n.tur === 'daire'){ nok.push([n.lat,n.lon]); L.circleMarker([n.lat,n.lon],{radius:7,color:'#fff',weight:2,fillColor:n.renk,fillOpacity:1}).addTo(katman).bindPopup(n.popup||''); }
+    else if(n.tur === 'kayit'){ L.circleMarker([n.lat,n.lon],{radius:4,color:'#1d4ed8',weight:1,fillOpacity:.6}).addTo(katman).bindTooltip(n.ipucu||''); }
+  });
+  if(v.yol && yol.length > 1) L.polyline(yol,{color:'#1d4ed8',weight:2,opacity:.5,dashArray:'4 6'}).addTo(katman);
+  if(nok.length) h.fitBounds(L.latLngBounds(nok).pad(0.15),{maxZoom:16});
+  const m = document.getElementById('mesaj');
+  if(!nok.length && v.bos){ m.textContent = v.bos; m.style.display = 'block'; } else m.style.display = 'none';
+  window.__son = v;
+}
+window.addEventListener('message', e=>{ if(e.data && e.data.tip === 'd2d-harita') ciz(e.data); });
+if(window.parent !== window) window.parent.postMessage({tip:'d2d-harita-hazir'}, '*');
+</script></body></html>
