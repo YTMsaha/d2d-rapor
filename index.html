@@ -785,8 +785,12 @@ a.aramabtn{display:inline-block;background:#1e8e3e;color:#fff;border-radius:8px;
 <script>
 'use strict';
 /* ================= SABİTLER ================= */
-const APP_VERSION='1.3.2', APP_DATE='18.11.2026', BUILD_SUFFIX='-offline';
-const CHANGELOG=[{v:'1.3.2',t:'18.11.2026',n:[
+const APP_VERSION='1.4.0', APP_DATE='18.11.2026', BUILD_SUFFIX='-offline';
+const CHANGELOG=[{v:'1.4.0',t:'18.11.2026',n:[
+ 'Hizmet / sipariş no artık ürün bazında girilir: her ürün adedi için ayrı, etiketli kutu (ör. DSL 1, DSL 2, TV, Mobil 1, Mobil 2). Hangi numaranın hangi ürüne ait olduğu karışmaz',
+ 'Bir kısmını şimdi, kalanını sonra girebilirsiniz; tüm kutular dolana kadar kayıt "Numara bekleyen" listesinde "3/5" gibi görünür. "Numara gerekmiyor" düğmesi aynen duruyor',
+ 'Daha önce virgülle girilmiş numaralar silinmez; pencere açılınca girildiği sırayla kutulara yerleşir, sıra yanlışsa düzeltebilirsiniz. Ürünü olmayan sonuçlarda (ör. Dönüşüm) tek kutu kalır'
+]},{v:'1.3.2',t:'18.11.2026',n:[
  'Uygulama bildirimi (manifest) bağlantısı eklendi: Android\'de Ana Ekrana eklenen uygulama tarayıcı sekmesi yerine kendi penceresinde, D2D simgesiyle açılır. iPhone\'da değişiklik yok; mevcut kısayol ve veriler olduğu gibi kalır'
 ]},{v:'1.3.1',t:'18.11.2026',n:[
  'Ziyaret olmadan düzenlenen binalar (yönetici, bina durumu, pin vb.) da son 7 gün içinde düzenlendiyse pakete girer; Portföy Yönetimi/Panel\'e ulaşır',
@@ -894,7 +898,7 @@ function bantOf(m){if(m==null)return'yok';if(m<=250)return'250';if(m<=500)return
 /* Karıştırma: PY/Panel kvkkEncode ile aynı — UTF-8 -> XOR(yuregirtm) -> Base64, "~K~" öneki */
 function enc(s){if(s==null||s==='')return s;if(typeof s!=='string')s=String(s);if(s.startsWith('~K~'))return s;const b=new TextEncoder().encode(s),k=new TextEncoder().encode(KARISTIR_ANAHTAR);let bin='';for(let i=0;i<b.length;i++)bin+=String.fromCharCode(b[i]^k[i%k.length]);return '~K~'+btoa(bin);}
 function dec(s){if(typeof s!=='string'||!s.startsWith('~K~'))return s;try{const bin=atob(s.slice(3)),k=new TextEncoder().encode(KARISTIR_ANAHTAR),o=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)o[i]=bin.charCodeAt(i)^k[i%k.length];return new TextDecoder().decode(o);}catch(e){return s;}}
-function ziyaretMap(z,fn){const c=clone(z);c.ekNot=fn(c.ekNot);c.sonucMetni=fn(c.sonucMetni);(c.musteriler||[]).forEach(m=>{m.ad=fn(m.ad);m.tel=fn(m.tel);m.not=fn(m.not);if(m.siparisNo)m.siparisNo=fn(m.siparisNo);});(c.surumler||[]).forEach(e=>{if(e.oncekiSonuc)e.oncekiSonuc=fn(e.oncekiSonuc);});return c;}
+function ziyaretMap(z,fn){const c=clone(z);c.ekNot=fn(c.ekNot);c.sonucMetni=fn(c.sonucMetni);(c.musteriler||[]).forEach(m=>{m.ad=fn(m.ad);m.tel=fn(m.tel);m.not=fn(m.not);if(m.siparisNo)m.siparisNo=fn(m.siparisNo);(m.urunler||[]).forEach(u=>{if(Array.isArray(u.nolar))u.nolar=u.nolar.map(v=>v?fn(v):v);});});(c.surumler||[]).forEach(e=>{if(e.oncekiSonuc)e.oncekiSonuc=fn(e.oncekiSonuc);});return c;}
 function randevuMap(r,fn){const c=clone(r);if(c.musteri){c.musteri.ad=fn(c.musteri.ad);c.musteri.tel=fn(c.musteri.tel);}c.adres=fn(c.adres);c.not=fn(c.not);if(c.konum&&c.konum.baglanti)c.konum.baglanti=fn(c.konum.baglanti);return c;}
 function binaMap(b,fn){const c=clone(b);if(c.yonetici){c.yonetici.ad=fn(c.yonetici.ad);c.yonetici.tel=fn(c.yonetici.tel);}return c;}
 
@@ -1017,7 +1021,7 @@ const NUMARA_SONUC=['satis','on_talep','donusum'];
 function numaraBekleyen(zs,bugun,gun){
   gun=gun==null?30:gun;const o=[];
   (zs||[]).forEach(z=>{if(z.iptal||z.durum==='bekliyor')return;const t=dayKey(z.baslangic.zaman);if(gunFarki(t,bugun)<-gun)return;
-    (z.musteriler||[]).forEach(m=>{if(NUMARA_SONUC.includes(m.sonuc)&&!(m.siparisNo||'').trim()&&!m.numaraYok)o.push({zid:z.id,mid:m.id,tarih:t});});});
+    (z.musteriler||[]).forEach(m=>{if(!NUMARA_SONUC.includes(m.sonuc))return;const eksik=numaraEksik(m);if(eksik>0)o.push({zid:z.id,mid:m.id,tarih:t,eksik,toplam:numaraKutulari(m).length});});});
   return o.sort((a,b)=>a.tarih<b.tarih?-1:a.tarih>b.tarih?1:0);
 }
 function telefonGibi(t){return String(t||'').replace(/\D/g,'').length>=10;}
@@ -1033,7 +1037,8 @@ function degisenAlanlar(a,b,ba,bb){
     if((x.mevcutOperator||'')!==(y.mevcutOperator||'')||(x.taahhut||'')!==(y.taahhut||'')||(x.rakipBitis||'')!==(y.rakipBitis||''))add('operatör/taahhüt');
     if((x.takip||'')!==(y.takip||''))add('takip tarihi');
     if((x.not||'')!==(y.not||''))add('not');
-    if((x.siparisNo||'')!==(y.siparisNo||'')||!!x.numaraYok!==!!y.numaraYok)add('numara');});
+    const nl=m=>(m.urunler||[]).flatMap(u=>(u.nolar||[]).map((v,k)=>String(v||'').trim()?u.urun+'#'+k+'='+String(v).trim():'')).filter(Boolean).join('|');
+    if((x.siparisNo||'')!==(y.siparisNo||'')||!!x.numaraYok!==!!y.numaraYok||nl(x)!==nl(y))add('numara');});
   Object.keys(am).forEach(id=>{if(!bm[id])add('müşteri çıkarıldı');});
   if((a.giris||'')!==(b.giris||''))add('giriş');
   if((a.ekNot||'')!==(b.ekNot||''))add('ek not');
@@ -1050,6 +1055,18 @@ function devirOzet(yerelB,yerelR,bs,rs){
   (rs||[]).filter(r=>r.durum==='bekliyor').forEach(r=>{const l=(yerelR||[]).find(x=>x.id===r.id);if(!l)o.yeniRandevu++;else o.atlananRandevu++;});
   return o;
 }
+/* v1.4.0: ürün adedi başına hizmet/sipariş no. urunler[j].nolar = adet uzunluğunda dizi (KVKK karışık);
+   m.siparisNo = girilenlerin virgüllü birleşimi (eski sürümler / PY uyumu). Eski virgüllü giriş sırayla kutulara dağıtılır */
+function numaraKutulari(m){const o=[];(m.urunler||[]).forEach((u,j)=>{const n=Math.max(1,+u.adet||1);for(let k=0;k<n;k++)o.push({j,k,etiket:u.urun+(n>1?' '+(k+1):'')});});if(!o.length)o.push({j:-1,k:0,etiket:'Numara'});return o;}
+function numaraNormalize(m){const l=m.urunler||[];if(!l.length)return m;
+  const hic=!l.some(u=>Array.isArray(u.nolar)&&u.nolar.some(x=>String(x||'').trim()));
+  const eski=hic?String(m.siparisNo||'').split(/[,;]/).map(x=>x.trim()).filter(Boolean):[];let e=0;
+  l.forEach(u=>{const n=Math.max(1,+u.adet||1);let a=Array.isArray(u.nolar)?u.nolar.slice(0,n):[];while(a.length<n)a.push('');if(hic)a=a.map(()=>e<eski.length?eski[e++]:'');u.nolar=a.map(x=>String(x==null?'':x));});
+  if(hic&&e<eski.length){const s=l[l.length-1],i=s.nolar.length-1;s.nolar[i]=[s.nolar[i],...eski.slice(e)].filter(Boolean).join(', ');} /* kutudan fazla eski numara kaybolmaz */
+  return m;}
+function numaraSenkron(m){numaraNormalize(m);if((m.urunler||[]).length){m.urunler.forEach(u=>{u.nolar=u.nolar.map(x=>String(x||'').trim());});m.siparisNo=m.urunler.flatMap(u=>u.nolar).filter(Boolean).join(', ');}else m.siparisNo=String(m.siparisNo||'').trim();if(m.siparisNo)m.numaraYok=false;return m;}
+function numaraEksik(m){if(m.numaraYok)return 0;if(!(m.urunler||[]).length)return String(m.siparisNo||'').trim()?0:1;const c=numaraNormalize(clone(m));return c.urunler.reduce((t,u)=>t+u.nolar.filter(x=>!String(x||'').trim()).length,0);}
+function numaraOzetTxt(m){if(!(m.urunler||[]).length)return String(m.siparisNo||'').trim();const c=numaraNormalize(clone(m));return numaraKutulari(c).map(b=>{const v=String(c.urunler[b.j].nolar[b.k]||'').trim();return v?b.etiket+': '+v:'';}).filter(Boolean).join(' · ');}
 /* Düzeltme tanımı (PY/Panel d2dDuzeltme ile aynı): surum > tamamSurum. v1.3.0 ve öncesinde iptal + geri alma tamamSurum'u artırmıyordu; o eski kayıtlarda (neden alanı olmayan iptalGeriAlindi girdisi) 2 sürüm düşülür */
 function duzeltmeMi(z){if(!z||z.iptal)return false;let ek=0;(z.surumler||[]).forEach(s=>{if(s&&s.iptalGeriAlindi&&!s.neden)ek+=2;});return (z.surum||1)-ek>(z.tamamSurum||1);}
 /*TEST-END*/
@@ -1245,6 +1262,12 @@ function yakinBinaGoster(){
 }
 let tkT=null;
 function taslakKaydet(){if(!D||D.edit)return;clearTimeout(tkT);tkT=setTimeout(()=>{if(!D||D.edit)return;S.taslak={z:clone(D.z),b:clone(D.b),edit:false,hizli:!!D.hizli,ts:Date.now()};save();},500);}
+/* v1.4.0: formda ürün adedi başına numara kutusu (ürün yoksa tek kutu) */
+function numaraFormHtml(ctx,m,P){
+  if(!(m.urunler||[]).length)return fInp(ctx,P+'siparisNo','Hizmet / sipariş no (isteğe bağlı)',{ph:'Satış / ön talepte'});
+  numaraNormalize(m);
+  return '<div class="lab">Hizmet / sipariş no (isteğe bağlı, ürün başına)</div><div class="row" style="flex-wrap:wrap">'+numaraKutulari(m).map(b=>fInp(ctx,P+'urunler.'+b.j+'.nolar.'+b.k,b.etiket)).join('')+'</div>';
+}
 function musteriHtml(ctx,m,i){
   const P='z.musteriler.'+i+'.';
   const sonuc=SONUCLAR.map(s=>'<button type="button" class="chip'+(m.sonuc===s.k?' on':'')+'" data-act="sonuc" data-i="'+i+'" data-v="'+s.k+'">'+s.l+'</button>').join('');
@@ -1259,7 +1282,7 @@ function musteriHtml(ctx,m,i){
    (m.mevcutOperator?'<div class="lab">Taahhüt durumu</div><div class="chips">'+tah+'</div>':'')+
    (rakip?fInp(ctx,P+'rakipBitis','Rakip taahhüt bitişi (ay)',{type:'month'})+(m.rakipBitis?'<div class="aramasatir"><button type="button" class="btn sm gray" data-act="tarihTemizle" data-i="'+i+'" data-f="rakipBitis">✕ Bitiş tarihini temizle</button></div>':''):'')+
    fInp(ctx,P+'takip','Dönüş / takip tarihi',{type:'date'})+(m.takip?'<div class="aramasatir"><button type="button" class="btn sm gray" data-act="tarihTemizle" data-i="'+i+'" data-f="takip">✕ Dönüş tarihini temizle</button></div>':'')+
-   fInp(ctx,P+'not','Müşteri notu (isteğe bağlı)')+fInp(ctx,P+'siparisNo','Hizmet / sipariş no (isteğe bağlı)',{ph:'Satış / ön talepte; birden fazlaysa virgülle'})+'</div>';
+   fInp(ctx,P+'not','Müşteri notu (isteğe bağlı)')+numaraFormHtml(ctx,m,P)+'</div>';
 }
 function formHtml(ctx){
   const {z,b}=D;
@@ -1355,7 +1378,7 @@ async function kaydet(){
   b.ad=(b.ad||'').replace(/\s+/g,' ').trim();z.giris=(z.giris||'').trim();
   z.musteriler=z.musteriler.filter(m=>m.ad.trim()||m.sonuc||m.urunler.length||m.tel.trim());
   if(D.hizli){z.musteriler=[];z.durum='bekliyor';z.bekleyenZaman=now;}
-  z.musteriler.forEach(m=>{m.tel=telFmt(m.tel);});if(D.b&&D.b.yonetici)D.b.yonetici.tel=telFmt(D.b.yonetici.tel);
+  z.musteriler.forEach(m=>{m.tel=telFmt(m.tel);numaraSenkron(m);});if(D.b&&D.b.yonetici)D.b.yonetici.tel=telFmt(D.b.yonetici.tel);
   if(!z.sonucElle)z.sonucMetni=sonucMetniUret(z);
   b.guncelleme=now;delete b.yeni;
   if(!D.edit){
@@ -1653,7 +1676,7 @@ async function rvAct(a,ds,sh){
 /* ================= NUMARA (hizmet / sipariş no) ================= */
 function numaraSatir(x){
   const z=S.ziyaretler.find(q=>q.id===x.zid),m=z.musteriler.find(q=>q.id===x.mid),b=binaOf(z);
-  return '<div class="vi" data-act="numara" data-z="'+z.id+'" data-m="'+m.id+'"><div class="h"><span>'+fmtDate(z.baslangic.zaman)+'</span><span>'+esc(label(SONUCLAR,m.sonuc)||'')+'</span></div><div class="t">'+esc(binaAdi(b.ad,z.giris))+'</div><div class="s">'+esc(m.ad||'Müşteri')+' · '+esc(urunTxt(m))+'</div></div>';
+  return '<div class="vi" data-act="numara" data-z="'+z.id+'" data-m="'+m.id+'"><div class="h"><span>'+fmtDate(z.baslangic.zaman)+'</span><span>'+esc(label(SONUCLAR,m.sonuc)||'')+'</span></div><div class="t">'+esc(binaAdi(b.ad,z.giris))+'</div><div class="s">'+esc(m.ad||'Müşteri')+' · '+esc(urunTxt(m))+(x.toplam>1?' · <b>'+(x.toplam-x.eksik)+'/'+x.toplam+' numara</b>':'')+'</div></div>';
 }
 function numaraBekleyenHtml(today){
   const t=numaraBekleyen(S.ziyaretler,today,30);if(!t.length)return '';
@@ -1667,24 +1690,27 @@ function numaraListeSheet(){
 function numaraSheet(zid,mid){
   const z=S.ziyaretler.find(q=>q.id===zid);if(!z)return;const m=z.musteriler.find(q=>q.id===mid);if(!m)return;const b=binaOf(z);
   const sh=openSheet('<h3 style="margin:0 0 4px;color:var(--navy)">Hizmet / sipariş no</h3><div class="info">'+esc(binaAdi(b.ad,z.giris))+' · '+esc(m.ad||'Müşteri')+' · '+esc(urunTxt(m))+'</div>'+
-   '<label class="fld"><span>Numara (birden fazlaysa virgülle)</span><input id="numIn" value="'+esc(m.siparisNo||'')+'" autocomplete="off" inputmode="text"></label>'+
+   (()=>{const c=numaraNormalize(clone(m));return numaraKutulari(c).map((bx,ix)=>'<label class="fld"><span>'+esc(bx.etiket)+'</span><input class="numIn" id="numIn'+(ix||'')+'" value="'+esc(bx.j<0?(c.siparisNo||''):(c.urunler[bx.j].nolar[bx.k]||''))+'" autocomplete="off" inputmode="text"></label>').join('')+((m.urunler||[]).length&&!(m.urunler||[]).some(u=>Array.isArray(u.nolar)&&u.nolar.some(v=>String(v||'').trim()))&&(m.siparisNo||'').trim()?'<div class="info">Önceki virgüllü giriş sırayla yerleştirildi; sıra yanlışsa düzeltin.</div>':'');})()+
    '<div class="row"><button class="btn ok" data-act="numKaydet">Kaydet</button><button class="btn sec" data-act="numYok">Numara gerekmiyor</button></div><button class="btn gray" style="margin-top:8px" data-act="kapat">Kapat</button>');
   attachBinder(sh.sheet,{root:{},act:async(a)=>{
     if(a==='kapat')closeSheet(sh);
-    if(a==='numKaydet'){const v=(sh.sheet.querySelector('#numIn').value||'').trim();await numaraKaydet(zid,mid,v,false);closeSheet(sh);}
+    if(a==='numKaydet'){const v=[...sh.sheet.querySelectorAll('.numIn')].map(x=>(x.value||'').trim());await numaraKaydet(zid,mid,v,false);closeSheet(sh);}
     if(a==='numYok'){await numaraKaydet(zid,mid,'',true);closeSheet(sh);}
   }});
 }
 async function numaraKaydet(zid,mid,deger,yok){
   const z=S.ziyaretler.find(q=>q.id===zid);if(!z)return;const m=z.musteriler.find(q=>q.id===mid);if(!m)return;
-  const now=new Date().toISOString();m.siparisNo=(deger||'').trim();m.numaraYok=!!yok&&!m.siparisNo;
+  const now=new Date().toISOString();
+  if(yok){(m.urunler||[]).forEach(u=>{u.nolar=[];});m.siparisNo='';m.numaraYok=true;}
+  else if(Array.isArray(deger)){const c=numaraKutulari(m);if(!(m.urunler||[]).length)m.siparisNo=String(deger[0]||'').trim();else{numaraNormalize(m);c.forEach((bx,ix)=>{m.urunler[bx.j].nolar[bx.k]=String(deger[ix]||'').trim();});}numaraSenkron(m);m.numaraYok=false;}
+  else{(m.urunler||[]).forEach(u=>{u.nolar=[];});m.siparisNo=String(deger||'').trim();numaraSenkron(m);m.numaraYok=false;} /* eski çağrı: virgüllü metin sırayla dağıtılır */
   (z.surumler=z.surumler||[]).push({surum:z.surum,zaman:z.duzenleme||z.olusturma,neden:'numara',musteriler:[]});
   z.surum++;z.duzenleme=now;z.tamamSurum=(z.tamamSurum||1)+1; /* (DÜZELTME) durumu değişmez */
-  await save();render();toast(m.siparisNo?'Numara kaydedildi':'Numara beklemeden çıkarıldı');
+  await save();render();toast(m.numaraYok?'Numara beklemeden çıkarıldı':numaraEksik(m)?'Numara kaydedildi ('+numaraEksik(m)+' kutu boş)':m.siparisNo?'Numara kaydedildi':'Numara silindi');
 }
 function numaraSatirlari(z){
   const l=(z.musteriler||[]).filter(m=>NUMARA_SONUC.includes(m.sonuc));if(!l.length||z.iptal||z.durum==='bekliyor')return '';
-  return '<div class="card"><h3>Hizmet / sipariş no</h3>'+l.map(m=>'<div class="kv"><span>'+esc(m.ad||'Müşteri')+'</span><span>'+(m.siparisNo?esc(m.siparisNo):m.numaraYok?'<i>gerekmiyor</i>':'<i>yok</i>')+' <button class="btn sm sec" style="width:auto;display:inline-block;margin-left:6px" data-act="numara" data-z="'+z.id+'" data-m="'+m.id+'">🔢</button></span></div>').join('')+'</div>';
+  return '<div class="card"><h3>Hizmet / sipariş no</h3>'+l.map(m=>'<div class="kv"><span>'+esc(m.ad||'Müşteri')+'</span><span>'+(m.numaraYok?'<i>gerekmiyor</i>':numaraOzetTxt(m)?esc(numaraOzetTxt(m))+(numaraEksik(m)?' <i>('+numaraEksik(m)+' eksik)</i>':''):'<i>yok</i>')+' <button class="btn sm sec" style="width:auto;display:inline-block;margin-left:6px" data-act="numara" data-z="'+z.id+'" data-m="'+m.id+'">🔢</button></span></div>').join('')+'</div>';
 }
 function takiplerHtml(today){
   const t=takipHesapla(S.ziyaretler,today,7);if(!t.length)return '';
