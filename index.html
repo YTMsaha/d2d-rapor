@@ -785,8 +785,10 @@ a.aramabtn{display:inline-block;background:#1e8e3e;color:#fff;border-radius:8px;
 <script>
 'use strict';
 /* ================= SABİTLER ================= */
-const APP_VERSION='1.4.1', APP_DATE='18.11.2026', BUILD_SUFFIX='-offline';
-const CHANGELOG=[{v:'1.4.1',t:'18.11.2026',n:[
+const APP_VERSION='1.4.2', APP_DATE='20.11.2026', BUILD_SUFFIX='-offline';
+const CHANGELOG=[{v:'1.4.2',t:'20.11.2026',n:[
+ 'İlçe listesine sabit "YÜREĞİR TM DIŞI" seçeneği eklendi (Yüreğir TM bölgesi dışındaki satışlar için). Seçilince mahalle boş kalır ve kapanır; pin her yerde işaretlenebilir. Özel ilçe listesi yüklense de bu seçenek listede kalır'
+]},{v:'1.4.1',t:'18.11.2026',n:[
  'Numara penceresinde her ürün kutusunun yanında "Gerekmiyor" işareti: birkaç ürüne numara girip bir ikisi için "gerekmiyor" diyebilirsiniz. Sayaç (ör. 3/5) gerekmeyenleri saymaz',
  '"Numara gerekmiyor" düğmesi "Boş kalanlar gerekmiyor" oldu: girilmiş numaralar silinmez, yalnızca boş kutular gerekmiyor olarak işaretlenir'
 ]},{v:'1.4.0',t:'18.11.2026',n:[
@@ -1156,7 +1158,8 @@ function fSel(ctx,p,lab,opts,o={}){const v=pget(ctx.root,p);return '<label class
 
 /* ================= İLÇE / MAHALLE ================= */
 const listeAktif=()=>S.ilceMahalle.length?S.ilceMahalle:ILCE_GOMULU;
-const ilceler=()=>listeAktif().map(x=>x.ilce);
+const ILCE_TM_DISI='YÜREĞİR TM DIŞI'; /* v1.4.2: Yüreğir TM dışı satışlar; mahallesiz */
+const ilceler=()=>[...listeAktif().map(x=>x.ilce).filter(x=>x!==ILCE_TM_DISI),ILCE_TM_DISI];
 const mahalleler=ilce=>{const x=listeAktif().find(i=>i.ilce===ilce);return x?x.mahalleler:[];};
 function mahOner(ilce,q){
   const l=mahalleler(ilce);const t=trLower((q||'').trim());
@@ -1176,7 +1179,7 @@ function binaFields(ctx){
   const b=ctx.root.b;const il=ilceler();
   return fInp(ctx,'b.ad','Bina adı',{up:1,ph:'Örn. Dumlupınar Apt.'})+
    '<div class="row">'+(il.length?fSel(ctx,'b.ilce','İlçe',il.map(x=>({k:x,l:x})),{blank:1}):fInp(ctx,'b.ilce','İlçe',{up:1}))+
-   fInp(ctx,'b.mahalle','Mahalle',{up:1,mah:1})+'</div><div class="oner" id="mahOner"></div>'+
+   (b.ilce===ILCE_TM_DISI?fInp(ctx,'b.mahalle','Mahalle',{up:1,mah:1}).replace('data-p="b.mahalle"','data-p="b.mahalle" disabled placeholder="Yok (TM dışı)"'):fInp(ctx,'b.mahalle','Mahalle',{up:1,mah:1}))+'</div><div class="oner" id="mahOner"></div>'+
    '<div class="pinrow" id="pinrow">'+pinTxt(b)+'<button type="button" class="btn sm sec" data-act="buradayim">📍 Buradayım</button><button type="button" class="btn sm sec" data-act="haritadan">🗺 Haritadan seç</button></div>';
 }
 function yoneticiFields(ctx){
@@ -1198,7 +1201,10 @@ async function binaAct(ctx,act,ds,sh){
   }
 }
 function binaOnChange(ctx,p,sh){
-  if(p==='b.ilce'){const o=$('#mahOner',sh.sheet);if(o)o.innerHTML='';}
+  if(p==='b.ilce'){const o=$('#mahOner',sh.sheet);if(o)o.innerHTML='';
+    const tm=ctx.root.b&&ctx.root.b.ilce===ILCE_TM_DISI,mi=sh&&sh.sheet&&sh.sheet.querySelector('input[data-p="b.mahalle"]');
+    if(tm&&ctx.root.b)ctx.root.b.mahalle='';
+    if(mi){if(tm)mi.value='';mi.disabled=!!tm;mi.placeholder=tm?'Yok (TM dışı)':'';}}
 }
 
 /* ================= HARİTA ================= */
@@ -1406,6 +1412,7 @@ async function kaydet(){
     else if(degisen.length&&degisen.every(x=>x==='numara'))z.tamamSurum=(z.tamamSurum||1)+1; /* yalnız numara eklendi: (DÜZELTME) olmaz */
   }
   const bi=S.binalar.findIndex(x=>x.id===b.id);if(bi>=0)S.binalar[bi]=b;else S.binalar.push(b);
+  if(b.ilce===ILCE_TM_DISI)b.mahalle='';
   S.ayar.sonIlce=b.ilce;S.ayar.sonMahalle=b.mahalle;
   const zi=S.ziyaretler.findIndex(x=>x.id===z.id);if(zi>=0)S.ziyaretler[zi]=z;else S.ziyaretler.push(z);
   if(!D.edit&&z.randevuId){const ri=(S.randevular||[]).findIndex(x=>x.id===z.randevuId);if(ri>=0&&S.randevular[ri].durum==='bekliyor')Object.assign(S.randevular[ri],{durum:'tamam',tamamZaman:now,ziyaretId:z.id,guncelleme:now});}
@@ -1847,7 +1854,7 @@ function binaDuzenle(id){
   ctx.act=async(a,ds)=>{
     if(a==='buradayim'||a==='haritadan')return binaAct(ctx,a,ds,sh);
     if(a==='vazgec')closeSheet(sh);
-    if(a==='kaydet'){const nb=ctx.root.b;if(!nb.ad.trim()||!nb.ilce.trim()){toast('Bina adı ve ilçe gerekli');return;}nb.ad=nb.ad.replace(/\s+/g,' ').trim();nb.guncelleme=new Date().toISOString();const i=S.binalar.findIndex(x=>x.id===id);S.binalar[i]=nb;await save();closeSheet(sh);render();toast('Bina güncellendi');}
+    if(a==='kaydet'){const nb=ctx.root.b;if(!nb.ad.trim()||!nb.ilce.trim()){toast('Bina adı ve ilçe gerekli');return;}if(nb.ilce===ILCE_TM_DISI)nb.mahalle='';nb.ad=nb.ad.replace(/\s+/g,' ').trim();nb.guncelleme=new Date().toISOString();const i=S.binalar.findIndex(x=>x.id===id);S.binalar[i]=nb;await save();closeSheet(sh);render();toast('Bina güncellendi');}
   };
   sh=openSheet('');draw();attachBinder(sh.sheet,ctx);
 }
